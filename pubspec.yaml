@@ -1,0 +1,89 @@
+name: makarya_erp
+description: >
+  Hybrid Bookstore + Cafe ERP System — Muhammad Dzaki Bahri
+  Inspired by Makarya Gramedia Matraman.
+  Academic research on operational efficiency & business intelligence.
+version: 2.0.0+1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: '>=3.19.0'
+
+dependencies:
+  flutter:
+    sdk: flutter 
+  supabase_flutter: ^2.0.0
+  path_provider: ^2.1.2
+  url_launcher: ^6.2.5
+  image_picker: ^1.0.7
+ 
+
+  # ── State Management ──────────────────────────────────────────────────────
+  provider: ^6.1.2
+ 
+
+  # ── Database ──────────────────────────────────────────────────────────────
+  sqflite: ^2.3.3+1            
+  sqflite_common_ffi: ^2.3.3   
+  mysql_client: ^0.0.27         
+  path: ^1.9.0
+
+  # ── UI & Charts ───────────────────────────────────────────────────────────
+  fl_chart: ^1.2.0             # Required: pie chart, line chart, bar chart
+  google_fonts: ^8.0.2          # Inter typeface
+  flutter_animate: ^4.5.0       # Micro-animations (glassmorphism effects)
+  shimmer: ^3.0.0               # Loading skeleton states
+
+  # ── Hardware Integration ──────────────────────────────────────────────────
+  mobile_scanner: ^7.2.0        # QR/Barcode scanner (ISBN + custom QR)
+  pretty_qr_code: ^3.3.0        # Generate QR code image untuk absensi
+  esc_pos_printer_plus: ^0.1.1  # ESC/POS thermal printer
+  permission_handler: ^12.0.1   # Camera + Bluetooth permissions
+
+  # ── Networking ────────────────────────────────────────────────────────────
+  socket_io_client: ^3.1.4    # WebSocket for real-time dashboard
+  http: ^1.2.1
+  dio: ^5.5.0
+
+  # ── Utilities ─────────────────────────────────────────────────────────────
+  intl: ^0.20.2                 # Number & date formatting (Rp currency)
+  uuid: ^4.4.0                  # Transaction code generation
+  shared_preferences: ^2.2.3    # Session & settings
+  logger: ^2.3.0                # Structured logging
+  collection: ^1.18.0
+
+  # ── PDF Generation (for reports) ──────────────────────────────────────────
+  pdf: ^3.10.8
+  printing: ^5.13.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  mockito: ^5.4.4
+  build_runner: ^2.4.9
+
+ 
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/fonts/
+
+
+
+  # If using local Inter font (recommended for production)
+  # fonts:
+  #   - family: Inter
+  #     fonts:
+  #       - asset: assets/fonts/Inter-Regular.ttf
+  #         weight: 400
+  #       - asset: assets/fonts/Inter-Medium.ttf
+  #         weight: 500
+  #       - asset: assets/fonts/Inter-SemiBold.ttf
+  #         weight: 600
+  #       - asset: assets/fonts/Inter-Bold.ttf
+  #         weight: 700

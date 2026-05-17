@@ -15,10 +15,10 @@ import 'package:image_picker/image_picker.dart';
 import '../providers/hr_provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/makarya_theme.dart';
+import '../supabase_config.dart';
 
-// [CONFIG] Ganti dengan Resend API key lo
-const _kResendApiKey = 're_L9uPJ2vA_5qWJSXNdHhT4DBmTy2wW6P9j';
-const _kFromEmail    = 'onboarding@resend.dev'; // ganti ke domain lo kalau udah verified
+final _kResendApiKey = resendApiKey;
+const _kFromEmail    = 'onboarding@resend.dev'; 
 
 class HRScreen extends StatefulWidget {
   const HRScreen({super.key});

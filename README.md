@@ -1,4 +1,4 @@
-# MAKARYA HYBRID ERP SYSTEM
+# HYBRID ERP SYSTEM
 ## Research-Grade Hybrid Business Intelligence Platform
 ### Bookstore + Coffee Shop · Inspired by Gramedia Matraman
 

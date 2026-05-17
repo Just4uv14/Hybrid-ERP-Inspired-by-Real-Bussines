@@ -24,6 +24,7 @@ import 'screens/hr_screen.dart';
 import 'screens/receipt_screen.dart';
 import 'theme/makarya_theme.dart';
 import 'widgets/makarya_sidebar.dart';
+import 'supabase_config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

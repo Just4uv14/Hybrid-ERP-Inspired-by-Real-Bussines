@@ -777,7 +777,7 @@ class _QRSheetState extends State<_QRSheet> {
     setState(() => _sending = true);
     try {
       final response = await http.post(
-        Uri.parse('https://bitsqlyrcnjhwaxmtxbt.supabase.co/functions/v1/swift-service'),
+        Uri.parse(supabaseFunction),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ${Supabase.instance.client.auth.currentSession?.accessToken ?? ""}',

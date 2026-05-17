@@ -43,8 +43,8 @@ void main() async {
   ));
 
   await Supabase.initialize(
-    url:     'https://bitsqlyrcnjhwaxmtxbt.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpdHNxbHlyY25qaHdheG10eGJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3OTQwNDUsImV4cCI6MjA5MjM3MDA0NX0.VfZL2N9vw1ICFO9igNhLo7TW3akXz3mCghiVDijRuCA',
+    url:     'supabaseUrl',
+    anonKey: 'supabaseAnonKey',
   );
 
   runApp(

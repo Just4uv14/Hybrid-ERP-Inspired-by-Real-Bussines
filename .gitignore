@@ -57,3 +57,5 @@ captures/
 *.jks
 
 lib/supabase_config.dart
+*.zip
+*.backup

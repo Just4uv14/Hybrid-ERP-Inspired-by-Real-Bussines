@@ -1,4 +1,4 @@
-﻿// =============================================================================
+// =============================================================================
 // MAKARYA HYBRID ERP — PDF Service
 // File: lib/logic/pdf_service.dart
 // =============================================================================
@@ -424,6 +424,135 @@ Future<Uint8List> generateReceiptPdf({
           ),
           pw.SizedBox(height: 4),
           pw.Text(trxCode, style: pw.TextStyle(fontSize: 7, color: _kGrey)),
+          pw.SizedBox(height: 16),
+        ],
+      ),
+    ),
+  );
+
+  return pdf.save();
+}
+
+// =============================================================================
+// RECEIPT PDF FROM CART DATA (immediate print after payment)
+// =============================================================================
+
+/// Generate receipt PDF directly from ReceiptData (no DB query needed).
+/// Used for immediate printing after payment in POS.
+Future<Uint8List> generateReceiptPdfFromData(ReceiptData data) async {
+  final pdf = pw.Document();
+
+  double subtotal = 0;
+  for (final item in data.items) {
+    subtotal += item.lineSubtotal;
+  }
+  final taxable    = subtotal - data.discountAmount;
+  final ppnAmt     = taxable * data.taxConfig.ppnRate;
+  final serviceAmt = taxable * data.taxConfig.serviceRate;
+  final grandTotal = taxable + ppnAmt + serviceAmt;
+
+  pdf.addPage(
+    pw.Page(
+      pageFormat: const PdfPageFormat(
+        80 * PdfPageFormat.mm, double.infinity,
+        marginAll: 8 * PdfPageFormat.mm,
+      ),
+      theme: pw.ThemeData.withFont(
+        base: await PdfGoogleFonts.sourceCodeProRegular(),
+        bold: await PdfGoogleFonts.sourceCodeProBold(),
+      ),
+      build: (ctx) => pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          // ── Store header ──────────────────────────────────────────────
+          pw.Text('MAKARYA',
+              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: _kDark)),
+          pw.SizedBox(height: 2),
+          pw.Text('Kafe Buku & Kopi',
+              style: pw.TextStyle(fontSize: 9, color: _kGrey)),
+          pw.Text(data.storeAddress,
+              style: pw.TextStyle(fontSize: 7, color: _kGrey)),
+          pw.SizedBox(height: 6),
+          pw.Divider(color: _kDark, thickness: 0.5),
+          pw.SizedBox(height: 4),
+
+          // ── Transaction info ──────────────────────────────────────────
+          _receiptRow('No Trx', data.trxCode, isSmall: true),
+          _receiptRow('Kasir',  data.staffName, isSmall: true),
+          _receiptRow('Waktu',  _formatDateTime(data.trxAt), isSmall: true),
+          pw.SizedBox(height: 4),
+          pw.Divider(color: _kGrey, thickness: 0.3),
+          pw.SizedBox(height: 4),
+
+          // ── Items ─────────────────────────────────────────────────────
+          ...data.items.map((item) {
+            final name = data.itemNames[item.itemId] ?? 'Item';
+            return pw.Padding(
+              padding: const pw.EdgeInsets.symmetric(vertical: 2),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(name,
+                      style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: _kDark)),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('  ${item.qty.toInt()}x ${_rp(item.effectiveSellPrice)}',
+                          style: pw.TextStyle(fontSize: 8, color: _kGrey)),
+                      pw.Text(_rp(item.lineSubtotal),
+                          style: pw.TextStyle(fontSize: 8, color: _kDark)),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+
+          pw.SizedBox(height: 4),
+          pw.Divider(color: _kGrey, thickness: 0.3),
+          pw.SizedBox(height: 4),
+
+          // ── Totals ────────────────────────────────────────────────────
+          _receiptRow('Subtotal', _rp(subtotal)),
+          if (data.discountAmount > 0)
+            _receiptRow(
+              'Diskon${data.bundlePromoLabel != null ? " (${data.bundlePromoLabel})" : ""}',
+              '- ${_rp(data.discountAmount)}',
+              valueColor: _kRed,
+            ),
+          if (ppnAmt > 0)  _receiptRow('PPN 11%',     _rp(ppnAmt)),
+          if (serviceAmt > 0) _receiptRow('Service 5%', _rp(serviceAmt)),
+          pw.Divider(color: _kDark, thickness: 0.8),
+          _receiptRow('TOTAL', _rp(grandTotal), isBold: true),
+          pw.SizedBox(height: 4),
+          _receiptRow('Bayar (${data.paymentMethod})',
+              data.cashTendered != null ? _rp(data.cashTendered!) : '-'),
+          if ((data.changeGiven ?? 0) > 0)
+            _receiptRow('Kembali', _rp(data.changeGiven!)),
+
+          pw.SizedBox(height: 4),
+          pw.Divider(color: _kGrey, thickness: 0.3),
+          pw.SizedBox(height: 8),
+
+          // ── Footer ────────────────────────────────────────────────────
+          pw.Text('Terima kasih!',
+              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _kDark)),
+          pw.Text('Selamat membaca & menikmati kopi ☕',
+              style: pw.TextStyle(fontSize: 7, color: _kGrey)),
+          pw.SizedBox(height: 4),
+          pw.Text('PPN Reg: 02.123.456.7-890.000',
+              style: pw.TextStyle(fontSize: 6, color: _kGrey)),
+          pw.SizedBox(height: 10),
+
+          // ── QR Code ───────────────────────────────────────────────────
+          pw.BarcodeWidget(
+            barcode: pw.Barcode.qrCode(),
+            data: 'MAKARYA:${data.trxCode}',
+            width: 60, height: 60,
+          ),
+          pw.SizedBox(height: 4),
+          pw.Text(data.trxCode,
+              style: pw.TextStyle(fontSize: 7, color: _kGrey, letterSpacing: 1)),
           pw.SizedBox(height: 16),
         ],
       ),

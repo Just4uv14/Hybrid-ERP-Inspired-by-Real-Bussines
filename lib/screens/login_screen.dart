@@ -1,5 +1,5 @@
 // =============================================================================
-// MAKARYA HYBRID ERP — Login Screen (Glassmorphism + Animated Bear)
+// MAKARYA HYBRID ERP — Login Screen (Cyber/Crypto Aesthetic)
 // File: lib/screens/login_screen.dart
 // =============================================================================
 
@@ -8,12 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/makarya_theme.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// BEAR STATE
-// ─────────────────────────────────────────────────────────────────────────────
-
-enum BearState { idle, peek, cover, angry, happy }
+import '../widgets/glass_widgets.dart'; // Still using the base glass widgets
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LOGIN SCREEN
@@ -33,7 +28,6 @@ class _LoginScreenState extends State<LoginScreen>
   final _pinFocus       = FocusNode();
 
   bool _obscurePin = true;
-  BearState _bearState = BearState.idle;
 
   late AnimationController _entryCtrl;
   late Animation<double>   _fadeAnim;
@@ -69,9 +63,6 @@ class _LoginScreenState extends State<LoginScreen>
       CurveTween(curve: Curves.elasticIn),
     ).animate(_shakeCtrl);
 
-    _idFocus.addListener(_onFocusChange);
-    _pinFocus.addListener(_onFocusChange);
-
     _entryCtrl.forward();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -79,24 +70,10 @@ class _LoginScreenState extends State<LoginScreen>
     });
   }
 
-  void _onFocusChange() {
-    setState(() {
-      if (_pinFocus.hasFocus) {
-        _bearState = BearState.cover;
-      } else if (_idFocus.hasFocus) {
-        _bearState = BearState.peek;
-      } else {
-        _bearState = BearState.idle;
-      }
-    });
-  }
-
   @override
   void dispose() {
     _employeeIdCtrl.dispose();
     _pinCtrl.dispose();
-    _idFocus.removeListener(_onFocusChange);
-    _pinFocus.removeListener(_onFocusChange);
     _idFocus.dispose();
     _pinFocus.dispose();
     _entryCtrl.dispose();
@@ -121,14 +98,8 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (!ok && mounted) {
       _shakeCtrl.forward(from: 0);
-      setState(() => _bearState = BearState.angry);
       _pinCtrl.clear();
       _pinFocus.requestFocus();
-      Future.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted && _bearState == BearState.angry) {
-          setState(() => _bearState = BearState.cover);
-        }
-      });
     }
   }
 
@@ -145,229 +116,336 @@ class _LoginScreenState extends State<LoginScreen>
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: GlassBackground(
-        child: KeyboardListener(
-          focusNode: FocusNode(),
-          onKeyEvent: _onKeyEvent,
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 400),
-                child: AnimatedBuilder(
-                  animation: _entryCtrl,
-                  builder: (context, child) {
-                    return FadeTransition(
-                      opacity: _fadeAnim,
-                      child: ScaleTransition(
-                        scale: _scaleAnim,
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    alignment: Alignment.topCenter,
-                    children: [
-                      // ── Bear di atas card (BESAR) ───────────────────
-                      Positioned(
-                        top: -90,
-                        child: MakaryaBear(state: _bearState),
-                      ),
+      backgroundColor: const Color(0xFF0D0E15), // Deep dark background
+      body: Stack(
+        children: [
+          // Background ambient glows (Cyber Aesthetic)
+          Positioned(
+            top: MediaQuery.of(context).size.height * 0.2,
+            right: MediaQuery.of(context).size.width * 0.2,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFE94057).withValues(alpha: 0.15),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: MediaQuery.of(context).size.height * 0.1,
+            left: MediaQuery.of(context).size.width * 0.2,
+            child: Container(
+              width: 400,
+              height: 400,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
 
-                      // ── Glass Card ──────────────────────────────────
-                      GlassPanel(
-                        borderRadius: 24,
-                        showShimmer: true,
-                        padding: const EdgeInsets.fromLTRB(32, 64, 32, 40),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const SizedBox(height: 12),
-
-                            // ── Title ─────────────────────────────────
-                            const Text(
-                              'Masuk',
-                              style: TextStyle(
-                                color: MakaryaColors.textPrimary,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                                fontFamily: 'Inter',
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-
-                            // ── Subtitle ──────────────────────────────
-                            Text(
-                              'Silakan masukkan detail Anda untuk masuk.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: MakaryaColors.textMuted,
-                                fontSize: 12,
-                                fontFamily: 'Inter',
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 28),
-
-                            // ── Employee ID ───────────────────────────
-                            _buildTextField(
-                              controller: _employeeIdCtrl,
-                              focusNode: _idFocus,
-                              hint: 'ID Karyawan (contoh: EMP-001)',
-                              icon: Icons.badge_outlined,
-                              textCapitalization: TextCapitalization.characters,
-                              onSubmitted: (_) => _pinFocus.requestFocus(),
-                              onChanged: (_) => auth.clearError(),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // ── PIN ───────────────────────────────────
-                            _buildTextField(
-                              controller: _pinCtrl,
-                              focusNode: _pinFocus,
-                              hint: 'PIN (4 digit)',
-                              icon: Icons.lock_outline_rounded,
-                              obscureText: _obscurePin,
-                              keyboardType: TextInputType.number,
-                              maxLength: 4,
-                              onSubmitted: (_) => _onLogin(),
-                              onChanged: (_) => auth.clearError(),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePin
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  size: 18,
-                                  color: MakaryaColors.textMuted,
-                                ),
-                                onPressed: () => setState(
-                                    () => _obscurePin = !_obscurePin),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-
-                            // ── Lupa PIN ──────────────────────────────
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                          'Hubungi Manager untuk reset PIN.'),
-                                      backgroundColor: MakaryaColors.surface03,
-                                    ),
-                                  );
-                                },
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: const Size(0, 32),
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                child: const Text(
-                                  'Lupa PIN?',
-                                  style: TextStyle(
-                                    color: MakaryaColors.woodLight,
-                                    fontSize: 11,
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // ── Error message ─────────────────────────
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 200),
-                              child: auth.errorMessage != null
-                                  ? _buildError(auth.errorMessage!)
-                                  : const SizedBox.shrink(
-                                      key: ValueKey('no-error')),
-                            ),
-
-                            // ── Tombol Masuk ──────────────────────────
-                            AnimatedBuilder(
-                              animation: _shakeAnim,
-                              builder: (context, child) {
-                                return Transform.translate(
-                                  offset: Offset(
-                                    _shakeAnim.value *
-                                        (_shakeCtrl.value < 0.5 ? 1 : -1),
-                                    0,
-                                  ),
-                                  child: child,
-                                );
-                              },
-                              child: SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: auth.loading ? null : _onLogin,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    foregroundColor:
-                                        MakaryaColors.darkEspresso,
-                                    elevation: 0,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    textStyle: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'Inter',
-                                    ),
-                                  ),
-                                  child: auth.loading
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.5,
-                                            color: MakaryaColors.darkEspresso,
-                                          ),
-                                        )
-                                      : const Text('Masuk'),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-
-                            // ── Footer ────────────────────────────────
-                            Text(
-                              "Belum punya akun? Hubungi Manager",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: MakaryaColors.textMuted,
-                                fontSize: 11,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                          ],
+          // Main Content
+          KeyboardListener(
+            focusNode: FocusNode(),
+            onKeyEvent: _onKeyEvent,
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: AnimatedBuilder(
+                    animation: _entryCtrl,
+                    builder: (context, child) {
+                      return FadeTransition(
+                        opacity: _fadeAnim,
+                        child: ScaleTransition(
+                          scale: _scaleAnim,
+                          child: child,
                         ),
-                      ),
-                    ],
+                      );
+                    },
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.topCenter,
+                      children: [
+                        // ── Glass Card ──────────────────────────────────
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF3B82F6).withValues(alpha: 0.05),
+                                blurRadius: 40,
+                                offset: const Offset(0, 20),
+                              ),
+                            ],
+                          ),
+                          child: GlassCard(
+                            blurSigma: 24,
+                            tintColor: const Color(0xFF141620), // Darker glass
+                            borderSide: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.05),
+                              width: 1,
+                            ),
+                            padding: const EdgeInsets.fromLTRB(40, 48, 40, 40),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // Glowing Avatar
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  alignment: Alignment.center,
+                                  children: [
+                                    Container(
+                                      width: 64,
+                                      height: 64,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: const Color(0xFF1E293B),
+                                        border: Border.all(
+                                          color: const Color(0xFF3B82F6).withValues(alpha: 0.5),
+                                          width: 1.5,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
+                                            blurRadius: 24,
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Icon(
+                                        Icons.person_rounded,
+                                        size: 32,
+                                        color: Color(0xFF60A5FA),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: -10,
+                                      left: -10,
+                                      child: Icon(
+                                        Icons.auto_awesome_rounded,
+                                        size: 20,
+                                        color: Colors.amberAccent.withValues(alpha: 0.8),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 32),
+  
+                                // ── Title (Gradient Text) ─────────────────
+                                ShaderMask(
+                                  shaderCallback: (bounds) => const LinearGradient(
+                                    colors: [Colors.white, Color(0xFFFFD1D1)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ).createShader(bounds),
+                                  child: const Text(
+                                    'Let\'s get you started',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w700,
+                                      fontFamily: 'Inter',
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+  
+                                // ── Subtitle ──────────────────────────────
+                                const Text(
+                                  'Silakan masukkan ID Karyawan dan PIN untuk mengakses Makarya ERP.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Color(0xFF94A3B8),
+                                    fontSize: 12,
+                                    fontFamily: 'Inter',
+                                    height: 1.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 36),
+  
+                                // ── Employee ID ───────────────────────────
+                                _buildTextField(
+                                  controller: _employeeIdCtrl,
+                                  focusNode: _idFocus,
+                                  hint: 'ID Karyawan',
+                                  textCapitalization: TextCapitalization.characters,
+                                  onSubmitted: (_) => _pinFocus.requestFocus(),
+                                  onChanged: (_) => auth.clearError(),
+                                ),
+                                const SizedBox(height: 20),
+  
+                                // ── PIN ───────────────────────────────────
+                                _buildTextField(
+                                  controller: _pinCtrl,
+                                  focusNode: _pinFocus,
+                                  hint: 'PIN',
+                                  obscureText: _obscurePin,
+                                  keyboardType: TextInputType.number,
+                                  maxLength: 4,
+                                  onSubmitted: (_) => _onLogin(),
+                                  onChanged: (_) => auth.clearError(),
+                                  suffixIcon: IconButton(
+                                    icon: Icon(
+                                      _obscurePin
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      size: 18,
+                                      color: const Color(0xFF64748B),
+                                    ),
+                                    onPressed: () => setState(
+                                        () => _obscurePin = !_obscurePin),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+  
+                                // ── Lupa PIN ──────────────────────────────
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: () {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'Hubungi Manager untuk reset PIN.'),
+                                          backgroundColor: MakaryaColors.surface03,
+                                        ),
+                                      );
+                                    },
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: const Size(0, 32),
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: const Text(
+                                      'Lupa PIN?',
+                                      style: TextStyle(
+                                        color: Color(0xFF94A3B8),
+                                        fontSize: 12,
+                                        fontFamily: 'Inter',
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+  
+                                // ── Error message ─────────────────────────
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 200),
+                                  child: auth.errorMessage != null
+                                      ? _buildError(auth.errorMessage!)
+                                      : const SizedBox.shrink(
+                                          key: ValueKey('no-error')),
+                                ),
+  
+                                // ── Tombol Masuk ──────────────────────────
+                                AnimatedBuilder(
+                                  animation: _shakeAnim,
+                                  builder: (context, child) {
+                                    return Transform.translate(
+                                      offset: Offset(
+                                        _shakeAnim.value *
+                                            (_shakeCtrl.value < 0.5 ? 1 : -1),
+                                        0,
+                                      ),
+                                      child: child,
+                                    );
+                                  },
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    height: 52,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(30),
+                                        gradient: const LinearGradient(
+                                          colors: [
+                                            Color(0xFF3B82F6),
+                                            Color(0xFF2563EB),
+                                          ],
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
+                                            blurRadius: 12,
+                                            offset: const Offset(0, 4),
+                                          )
+                                        ]
+                                      ),
+                                      child: ElevatedButton(
+                                        onPressed: auth.loading ? null : _onLogin,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.transparent,
+                                          shadowColor: Colors.transparent,
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(30),
+                                          ),
+                                          textStyle: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                            fontFamily: 'Inter',
+                                          ),
+                                        ),
+                                        child: auth.loading
+                                            ? const SizedBox(
+                                                width: 20,
+                                                height: 20,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2.5,
+                                                  color: Colors.white,
+                                                ),
+                                              )
+                                            : const Text('Next'),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 32),
+  
+                                // ── Footer ────────────────────────────────
+                                Text(
+                                  "Belum punya akun? Hubungi Manager",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: const Color(0xFF64748B),
+                                    fontSize: 12,
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 
-  // ── Reusable glass input ─────────────────────────────────────────────────
+  // ── Reusable capsule input ───────────────────────────────────────────────
   Widget _buildTextField({
     required TextEditingController controller,
     required FocusNode focusNode,
     required String hint,
-    required IconData icon,
     bool obscureText = false,
     TextInputType? keyboardType,
     int? maxLength,
@@ -376,54 +454,71 @@ class _LoginScreenState extends State<LoginScreen>
     ValueChanged<String>? onChanged,
     Widget? suffixIcon,
   }) {
-    return TextField(
-      controller: controller,
-      focusNode: focusNode,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      maxLength: maxLength,
-      textCapitalization: textCapitalization,
-      textInputAction: TextInputAction.next,
-      onSubmitted: onSubmitted,
-      onChanged: onChanged,
-      style: const TextStyle(
-        color: MakaryaColors.textPrimary,
-        fontFamily: 'Inter',
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ]
       ),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(
-          color: MakaryaColors.textMuted,
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        obscureText: obscureText,
+        keyboardType: keyboardType,
+        maxLength: maxLength,
+        textCapitalization: textCapitalization,
+        textInputAction: TextInputAction.next,
+        onSubmitted: onSubmitted,
+        onChanged: onChanged,
+        style: const TextStyle(
+          color: Colors.white,
           fontFamily: 'Inter',
-          fontSize: 13,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
         ),
-        filled: true,
-        fillColor: MakaryaColors.surface02,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: MakaryaColors.glassBorder,
-            width: 0.5,
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(
+            color: Color(0xFF475569),
+            fontFamily: 'Inter',
+            fontSize: 14,
           ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(
-            color: MakaryaColors.woodBrown,
-            width: 1.5,
+          filled: true,
+          fillColor: const Color(0xFF0F172A), // Very dark slate
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide(
+              color: Colors.white.withValues(alpha: 0.05),
+              width: 1,
+            ),
           ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: BorderSide(
+              color: Colors.white.withValues(alpha: 0.1),
+              width: 1,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30),
+            borderSide: const BorderSide(
+              color: Color(0xFF3B82F6),
+              width: 1.5,
+            ),
+          ),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+          suffixIcon: suffixIcon != null ? Padding(
+            padding: const EdgeInsets.only(right: 8.0),
+            child: suffixIcon,
+          ) : null,
+          counterText: '',
         ),
-        prefixIcon: Icon(icon, size: 18, color: MakaryaColors.textMuted),
-        suffixIcon: suffixIcon,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        counterText: '',
       ),
     );
   }
@@ -431,16 +526,16 @@ class _LoginScreenState extends State<LoginScreen>
   // ── Error banner ─────────────────────────────────────────────────────────
   Widget _buildError(String message) => Padding(
         key: ValueKey(message),
-        padding: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.only(bottom: 20),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: MakaryaColors.lossRed.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: MakaryaColors.lossRed.withValues(alpha: 0.3),
-              width: 0.5,
+              width: 1,
             ),
           ),
           child: Row(
@@ -462,286 +557,6 @@ class _LoginScreenState extends State<LoginScreen>
                 ),
               ),
             ],
-          ),
-        ),
-      );
-}
-
-// =============================================================================
-// MAKARYA BEAR — Animated bear widget (pure Flutter, no assets)
-// =============================================================================
-
-class MakaryaBear extends StatelessWidget {
-  final BearState state;
-  const MakaryaBear({super.key, required this.state});
-
-  static const _furDark   = Color(0xFF6B4F1E);
-  static const _furLight  = Color(0xFFC4A265);
-  static const _furMedium = Color(0xFF8B6914);
-  static const _nose      = Color(0xFF2D1F0E);
-
-  bool get _isCover => state == BearState.cover;
-  bool get _isAngry => state == BearState.angry;
-  bool get _isHappy => state == BearState.happy;
-  bool get _isPeek  => state == BearState.peek;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 160,
-      height: 140,
-      child: Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.none,
-        children: [
-          // ── Ears ──────────────────────────────────────────────────────
-          Positioned(
-            top: 4,
-            left: 22,
-            child: _ear(),
-          ),
-          Positioned(
-            top: 4,
-            right: 22,
-            child: _ear(),
-          ),
-
-          // ── Head ──────────────────────────────────────────────────────
-          Container(
-            width: 120,
-            height: 110,
-            decoration: const BoxDecoration(
-              color: _furDark,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(56),
-                topRight: Radius.circular(56),
-                bottomLeft: Radius.circular(48),
-                bottomRight: Radius.circular(48),
-              ),
-            ),
-          ),
-
-          // ── Snout ─────────────────────────────────────────────────────
-          Positioned(
-            bottom: 18,
-            child: Container(
-              width: 56,
-              height: 38,
-              decoration: BoxDecoration(
-                color: _furLight,
-                borderRadius: BorderRadius.circular(22),
-              ),
-            ),
-          ),
-
-          // ── Nose ──────────────────────────────────────────────────────
-          Positioned(
-            bottom: 36,
-            child: Container(
-              width: 18,
-              height: 12,
-              decoration: BoxDecoration(
-                color: _nose,
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-
-          // ── Mouth ─────────────────────────────────────────────────────
-          Positioned(
-            bottom: 22,
-            child: _mouth(),
-          ),
-
-          // ── Eyes ──────────────────────────────────────────────────────
-          if (!_isCover) ...[
-            Positioned(
-              top: 42,
-              left: 34,
-              child: _eye(isLeft: true),
-            ),
-            Positioned(
-              top: 42,
-              right: 34,
-              child: _eye(isLeft: false),
-            ),
-          ],
-
-          // ── Eyebrows (angry only) ─────────────────────────────────────
-          if (_isAngry) ...[
-            Positioned(
-              top: 32,
-              left: 32,
-              child: Transform.rotate(
-                angle: 0.5,
-                child: _eyebrow(),
-              ),
-            ),
-            Positioned(
-              top: 32,
-              right: 32,
-              child: Transform.rotate(
-                angle: -0.5,
-                child: _eyebrow(),
-              ),
-            ),
-          ],
-
-          // ── Paws (animated) ───────────────────────────────────────────
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOutBack,
-            top: _isCover ? 32 : 72,
-            left: 26,
-            child: _paw(),
-          ),
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeOutBack,
-            top: _isCover ? 32 : 72,
-            right: 26,
-            child: _paw(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Ear ──────────────────────────────────────────────────────────────────
-  Widget _ear() => Container(
-        width: 34,
-        height: 34,
-        decoration: const BoxDecoration(
-          color: _furDark,
-          shape: BoxShape.circle,
-        ),
-        child: Center(
-          child: Container(
-            width: 18,
-            height: 18,
-            decoration: const BoxDecoration(
-              color: _furLight,
-              shape: BoxShape.circle,
-            ),
-          ),
-        ),
-      );
-
-  // ── Eye ──────────────────────────────────────────────────────────────────
-  Widget _eye({required bool isLeft}) {
-    final pupilOffset = _isPeek
-        ? (isLeft ? const Offset(3, -1) : const Offset(-3, -1))
-        : _isAngry
-            ? (isLeft ? const Offset(4, 2) : const Offset(-4, 2))
-            : _isHappy
-                ? (isLeft ? const Offset(0, -2) : const Offset(0, -2))
-                : Offset.zero;
-
-    return Container(
-      width: 26,
-      height: 26,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-      ),
-      child: Center(
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 14,
-          height: _isHappy ? 5 : 14,
-          margin: EdgeInsets.only(
-            left: pupilOffset.dx + 5,
-            top: pupilOffset.dy + 5,
-          ),
-          decoration: BoxDecoration(
-            color: _isHappy ? _furDark : _nose,
-            borderRadius: _isHappy
-                ? BorderRadius.circular(5)
-                : BorderRadius.circular(7),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Eyebrow ──────────────────────────────────────────────────────────────
-  Widget _eyebrow() => Container(
-        width: 18,
-        height: 5,
-        decoration: BoxDecoration(
-          color: _nose,
-          borderRadius: BorderRadius.circular(3),
-        ),
-      );
-
-  // ── Mouth ────────────────────────────────────────────────────────────────
-  Widget _mouth() {
-    if (_isAngry) {
-      return Container(
-        width: 20,
-        height: 10,
-        decoration: const BoxDecoration(
-          border: Border(
-            top: BorderSide(color: _nose, width: 2.5),
-          ),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(10),
-            topRight: Radius.circular(10),
-          ),
-        ),
-      );
-    }
-    if (_isHappy) {
-      return Container(
-        width: 20,
-        height: 10,
-        decoration: const BoxDecoration(
-          border: Border(
-            bottom: BorderSide(color: _nose, width: 2.5),
-          ),
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(10),
-            bottomRight: Radius.circular(10),
-          ),
-        ),
-      );
-    }
-    return Container(
-      width: 16,
-      height: 8,
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: _nose, width: 2),
-        ),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(8),
-          bottomRight: Radius.circular(8),
-        ),
-      ),
-    );
-  }
-
-  // ── Paw ──────────────────────────────────────────────────────────────────
-  Widget _paw() => Container(
-        width: 30,
-        height: 24,
-        decoration: BoxDecoration(
-          color: _furMedium,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            3,
-            (i) => Container(
-              width: 5,
-              height: 8,
-              margin: const EdgeInsets.symmetric(horizontal: 1.5),
-              decoration: BoxDecoration(
-                color: _furLight.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
           ),
         ),
       );

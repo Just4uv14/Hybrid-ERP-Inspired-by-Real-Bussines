@@ -7,6 +7,7 @@
 //   ② Grafik tren 30 hari (revenue + profit)
 //   ③ Profitability matrix per SKU
 //   ④ Export PDF laporan keuangan lengkap
+//   ⑤ Best Seller — ranking produk terlaris by unit / revenue / margin
 // =============================================================================
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import '../providers/dashboard_provider.dart';
 import '../logic/business_logic.dart';
 import '../logic/pdf_service.dart';
 import '../theme/makarya_theme.dart';
+import 'financial_report_screen.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -24,9 +26,25 @@ class AnalyticsScreen extends StatefulWidget {
   State<AnalyticsScreen> createState() => _AnalyticsScreenState();
 }
 
-class _AnalyticsScreenState extends State<AnalyticsScreen> {
+class _AnalyticsScreenState extends State<AnalyticsScreen>
+    with SingleTickerProviderStateMixin {
   bool _pdfExporting = false;
-  String _skuSort = 'revenue'; // 'revenue' | 'margin' | 'units'
+  late TabController _mainTabCtrl;
+  String _skuSort       = 'revenue'; // 'revenue' | 'margin' | 'units'
+  String _bestSellerSort = 'units';  // 'units' | 'revenue' | 'margin'
+  int    _bestSellerLimit = 5;        // 5 | 10
+
+  @override
+  void initState() {
+    super.initState();
+    _mainTabCtrl = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _mainTabCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _exportPdf(DashboardProvider dash) async {
     setState(() => _pdfExporting = true);
@@ -98,62 +116,119 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return list;
   }
 
+  List<SkuProfitability> _sortedBestSellers(List<SkuProfitability> skus) {
+    final list = List<SkuProfitability>.from(skus);
+    switch (_bestSellerSort) {
+      case 'revenue':
+        list.sort((a, b) => b.revenue.compareTo(a.revenue));
+      case 'margin':
+        list.sort((a, b) => b.grossMarginPct.compareTo(a.grossMarginPct));
+      default: // 'units'
+        list.sort((a, b) => b.unitsSold.compareTo(a.unitsSold));
+    }
+    return list.take(_bestSellerLimit).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Consumer<DashboardProvider>(
-      builder: (context, dash, _) {
-        if (dash.loading) {
-          return const Center(child: CircularProgressIndicator(color: MakaryaColors.woodBrown));
-        }
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ① Period Filter Bar
-              _PeriodFilterBar(
-                selected:   dash.selectedPeriod,
-                onSelected: (p) async {
-                  if (p == PeriodFilter.custom) {
-                    await _pickCustomRange(dash);
-                  } else {
-                    await dash.setPeriod(p);
-                  }
-                },
-                onExportPdf:   () => _exportPdf(dash),
-                pdfExporting:  _pdfExporting,
+    return Column(
+      children: [
+        // ── Tab bar utama ──────────────────────────────────────────────────
+        Container(
+          color: MakaryaColors.surface01,
+          child: TabBar(
+            controller: _mainTabCtrl,
+            tabs: const [
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.bar_chart_rounded, size: 14),
+                    SizedBox(width: 6),
+                    Text('Analitik'),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-
-              // Filtered PnL Summary chips
-              if (dash.filteredPnl != null)
-                _FilteredPnlSummary(pnl: dash.filteredPnl!),
-              const SizedBox(height: 16),
-
-              // ② 30-Day Trend Chart
-              _TrendChartCard(dash: dash),
-              const SizedBox(height: 16),
-
-              // P&L Breakdown (today always shown)
-              _PnlBreakdownCard(pnl: dash.todayPnl),
-              const SizedBox(height: 16),
-
-              // ③ SKU Profitability Matrix
-              _SkuMatrixCard(
-                skus:       _sortedSkus(dash.skuProfitability),
-                loading:    dash.skuLoading,
-                sortKey:    _skuSort,
-                onSort:     (k) => setState(() => _skuSort = k),
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.account_balance_wallet_rounded, size: 14),
+                    SizedBox(width: 6),
+                    Text('Laporan'),
+                  ],
+                ),
               ),
-              const SizedBox(height: 16),
-
-              // Bundle Analytics
-              _BundleAnalyticsCard(bundle: dash.bundleAnalytics),
-              const SizedBox(height: 24),
             ],
           ),
-        );
-      },
+        ),
+
+        // ── Tab content ────────────────────────────────────────────────────
+        Expanded(
+          child: TabBarView(
+            controller: _mainTabCtrl,
+            children: [
+              // Tab 1: Analitik (konten lama)
+              Consumer<DashboardProvider>(
+                builder: (context, dash, _) {
+                  if (dash.loading) {
+                    return const Center(child: CircularProgressIndicator(color: MakaryaColors.woodBrown));
+                  }
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _PeriodFilterBar(
+                          selected:   dash.selectedPeriod,
+                          onSelected: (p) async {
+                            if (p == PeriodFilter.custom) {
+                              await _pickCustomRange(dash);
+                            } else {
+                              await dash.setPeriod(p);
+                            }
+                          },
+                          onExportPdf:  () => _exportPdf(dash),
+                          pdfExporting: _pdfExporting,
+                        ),
+                        const SizedBox(height: 16),
+                        if (dash.filteredPnl != null)
+                          _FilteredPnlSummary(pnl: dash.filteredPnl!),
+                        const SizedBox(height: 16),
+                        _TrendChartCard(dash: dash),
+                        const SizedBox(height: 16),
+                        _PnlBreakdownCard(pnl: dash.todayPnl),
+                        const SizedBox(height: 16),
+                        _SkuMatrixCard(
+                          skus:    _sortedSkus(dash.skuProfitability),
+                          loading: dash.skuLoading,
+                          sortKey: _skuSort,
+                          onSort:  (k) => setState(() => _skuSort = k),
+                        ),
+                        const SizedBox(height: 16),
+                        _BestSellerCard(
+                          skus:          _sortedBestSellers(dash.skuProfitability),
+                          loading:       dash.skuLoading,
+                          sortKey:       _bestSellerSort,
+                          limit:         _bestSellerLimit,
+                          onSort:        (k) => setState(() => _bestSellerSort = k),
+                          onLimitChange: (l) => setState(() => _bestSellerLimit = l),
+                        ),
+                        const SizedBox(height: 16),
+                        _BundleAnalyticsCard(bundle: dash.bundleAnalytics),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  );
+                },
+              ),
+
+              // Tab 2: Laporan Keuangan
+              const FinancialReportScreen(),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -853,6 +928,267 @@ class _MetricChip extends StatelessWidget {
         const SizedBox(height: 2),
         Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color, fontFamily: 'Inter')),
       ],
+    ),
+  );
+}
+
+// ── ④ Best Seller Card ─────────────────────────────────────────────────────────
+
+class _BestSellerCard extends StatelessWidget {
+  final List<SkuProfitability> skus;
+  final bool loading;
+  final String sortKey;
+  final int limit;
+  final ValueChanged<String> onSort;
+  final ValueChanged<int> onLimitChange;
+
+  const _BestSellerCard({
+    required this.skus,
+    required this.loading,
+    required this.sortKey,
+    required this.limit,
+    required this.onSort,
+    required this.onLimitChange,
+  });
+
+  String _rp(double v) => 'Rp ${v.toStringAsFixed(0).replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+
+  String _sortLabel(String key) => switch (key) {
+    'revenue' => 'Revenue',
+    'margin'  => 'Margin',
+    _         => 'Terjual',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    // Nilai max untuk progress bar — ambil dari item pertama (sudah sorted)
+    final maxVal = skus.isEmpty ? 1.0 : switch (sortKey) {
+      'revenue' => skus.first.revenue,
+      'margin'  => skus.first.grossMarginPct,
+      _         => skus.first.unitsSold.toDouble(),
+    };
+
+    return GlassPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header ──────────────────────────────────────────────────────────
+          Row(
+            children: [
+              const Expanded(
+                child: SectionHeader(
+                  title: 'Best Seller',
+                  subtitle: 'Produk terlaris periode ini',
+                ),
+              ),
+              // Sort chips
+              _SortChip(label: 'Terjual', active: sortKey == 'units',   onTap: () => onSort('units')),
+              const SizedBox(width: 6),
+              _SortChip(label: 'Revenue', active: sortKey == 'revenue', onTap: () => onSort('revenue')),
+              const SizedBox(width: 6),
+              _SortChip(label: 'Margin',  active: sortKey == 'margin',  onTap: () => onSort('margin')),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── Content ──────────────────────────────────────────────────────────
+          if (loading)
+            const SizedBox(
+              height: 100,
+              child: Center(child: CircularProgressIndicator(
+                  color: MakaryaColors.woodBrown, strokeWidth: 2)),
+            )
+          else if (skus.isEmpty)
+            const Text(
+              'Tidak ada data untuk periode ini.',
+              style: TextStyle(color: MakaryaColors.textMuted, fontFamily: 'Inter', fontSize: 12),
+            )
+          else ...[
+            ...skus.asMap().entries.map((entry) {
+              final rank = entry.key + 1;
+              final sku  = entry.value;
+
+              // Nilai & warna progress bar sesuai sort key
+              final barValue = switch (sortKey) {
+                'revenue' => sku.revenue,
+                'margin'  => sku.grossMarginPct,
+                _         => sku.unitsSold.toDouble(),
+              };
+              final barPct = maxVal > 0 ? (barValue / maxVal).clamp(0.0, 1.0) : 0.0;
+
+              // Label nilai utama
+              final mainLabel = switch (sortKey) {
+                'revenue' => _rp(sku.revenue),
+                'margin'  => '${(sku.grossMarginPct * 100).toStringAsFixed(1)}%',
+                _         => '${sku.unitsSold} unit',
+              };
+
+              // Warna badge rank
+              final rankColor = switch (rank) {
+                1 => const Color(0xFFFFD700), // gold
+                2 => const Color(0xFFC0C0C0), // silver
+                3 => const Color(0xFFCD7F32), // bronze
+                _ => MakaryaColors.concreteGrey,
+              };
+
+              // Warna dot kategori
+              final catColor = switch (sku.categoryCode) {
+                'COFFEE' => MakaryaColors.woodBrown,
+                'BOOK'   => MakaryaColors.infoBlue,
+                'FOOD'   => MakaryaColors.woodLight,
+                _        => MakaryaColors.concreteGrey,
+              };
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: rank <= 3
+                      ? rankColor.withValues(alpha: 0.06)
+                      : MakaryaColors.surface02,
+                  borderRadius: BorderRadius.circular(10),
+                  border: rank <= 3
+                      ? Border.all(color: rankColor.withValues(alpha: 0.25), width: 0.5)
+                      : null,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        // Rank badge
+                        Container(
+                          width: 24, height: 24,
+                          decoration: BoxDecoration(
+                            color: rankColor.withValues(alpha: rank <= 3 ? 0.2 : 0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Center(
+                            child: Text(
+                              rank <= 3 ? ['🥇','🥈','🥉'][rank - 1] : '$rank',
+                              style: TextStyle(
+                                fontSize: rank <= 3 ? 13 : 10,
+                                fontWeight: FontWeight.w700,
+                                color: rankColor,
+                                fontFamily: 'Inter',
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+
+                        // Nama produk + meta
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 5, height: 5,
+                                    decoration: BoxDecoration(color: catColor, shape: BoxShape.circle),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Expanded(
+                                    child: Text(
+                                      sku.name,
+                                      style: const TextStyle(
+                                        fontSize: 12, fontWeight: FontWeight.w600,
+                                        color: MakaryaColors.textPrimary, fontFamily: 'Inter',
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${sku.unitsSold} unit  ·  ${_rp(sku.revenue)}  ·  '
+                                '${(sku.grossMarginPct * 100).toStringAsFixed(0)}% margin',
+                                style: const TextStyle(
+                                  fontSize: 9, color: MakaryaColors.textMuted, fontFamily: 'Inter',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Nilai utama (sesuai sort key)
+                        Text(
+                          mainLabel,
+                          style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w700,
+                            color: rank <= 3 ? rankColor : MakaryaColors.textPrimary,
+                            fontFamily: 'Inter',
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Progress bar
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: barPct,
+                        minHeight: 4,
+                        backgroundColor: MakaryaColors.woodBrown.withValues(alpha: 0.1),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          rank <= 3 ? rankColor : MakaryaColors.woodBrown.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+
+            // ── Limit toggle (Top 5 / Top 10) ─────────────────────────────────
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _LimitChip(label: 'Top 5',  active: limit == 5,  onTap: () => onLimitChange(5)),
+                const SizedBox(width: 8),
+                _LimitChip(label: 'Top 10', active: limit == 10, onTap: () => onLimitChange(10)),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LimitChip extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+  const _LimitChip({required this.label, required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      decoration: BoxDecoration(
+        color: active ? MakaryaColors.woodBrown.withValues(alpha: 0.2) : Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: MakaryaColors.woodBrown.withValues(alpha: active ? 0.5 : 0.2),
+          width: 0.5,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+          color: active ? MakaryaColors.woodLight : MakaryaColors.textMuted,
+          fontFamily: 'Inter',
+        ),
+      ),
     ),
   );
 }

@@ -1,4 +1,4 @@
-﻿// =============================================================================
+// =============================================================================
 // MAKARYA HYBRID ERP — POS Screen
 // File: lib/screens/pos_screen.dart
 // =============================================================================
@@ -6,9 +6,11 @@
 import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:printing/printing.dart';
 import '../providers/cart_provider.dart';
 import '../providers/inventory_provider.dart';
 import '../logic/business_logic.dart';
+import '../logic/pdf_service.dart';
 import '../theme/makarya_theme.dart';
 import '../providers/auth_provider.dart';
 
@@ -709,97 +711,386 @@ class _PaymentDialog extends StatefulWidget {
 
 class _PaymentDialogState extends State<_PaymentDialog> {
   final _cashCtrl = TextEditingController();
-  bool _paid = false;
-  bool _loading = false;
-  String? _error;
+  bool _paid     = false;
+  bool _loading  = false;
+  bool _printing = false;
+  String?      _error;
+  ReceiptData? _receiptData; // snapshot setelah bayar, sebelum cart dibersihkan
+
+  @override
+  void dispose() { _cashCtrl.dispose(); super.dispose(); }
 
   String _rp(double v) => 'Rp ${v.toStringAsFixed(0).replaceAllMapped(
     RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
 
+  // ── Cetak / preview struk ────────────────────────────────────────────────
+  Future<void> _printReceipt() async {
+    if (_receiptData == null) return;
+    setState(() => _printing = true);
+    try {
+      final bytes = await generateReceiptPdfFromData(_receiptData!);
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: 'Struk_${_receiptData!.trxCode}',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal cetak: $e'),
+            backgroundColor: MakaryaColors.lossRed,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _printing = false);
+    }
+  }
+
+  Future<void> _shareReceipt() async {
+    if (_receiptData == null) return;
+    setState(() => _printing = true);
+    try {
+      final bytes = await generateReceiptPdfFromData(_receiptData!);
+      await sharePdf(bytes, fileName: 'Struk_${_receiptData!.trxCode}.pdf');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal bagikan: $e'), backgroundColor: MakaryaColors.lossRed),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _printing = false);
+    }
+  }
+
+  // ── Struk preview widget ──────────────────────────────────────────────────
+  Widget _buildReceiptPreview(ReceiptData r) {
+    final subtotal    = r.items.fold(0.0, (s, i) => s + i.lineSubtotal);
+    final taxable     = subtotal - r.discountAmount;
+    final ppnAmt      = taxable * r.taxConfig.ppnRate;
+    final serviceAmt  = taxable * r.taxConfig.serviceRate;
+    final grandTotal  = taxable + ppnAmt + serviceAmt;
+
+    const mono = TextStyle(fontFamily: 'monospace', fontSize: 11, color: MakaryaColors.textPrimary);
+    const monoSm = TextStyle(fontFamily: 'monospace', fontSize: 10, color: MakaryaColors.textSecondary);
+    const monoMuted = TextStyle(fontFamily: 'monospace', fontSize: 10, color: MakaryaColors.textMuted);
+
+    Widget row(String left, String right, {bool bold = false, Color? color}) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 1),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(left, style: monoSm),
+            Text(right, style: bold
+                ? TextStyle(fontFamily: 'monospace', fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: color ?? MakaryaColors.woodLight)
+                : TextStyle(fontFamily: 'monospace', fontSize: 10,
+                    color: color ?? MakaryaColors.textPrimary)),
+          ],
+        ),
+      );
+
+    Widget dash() => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Text('- - - - - - - - - - - - - - - - - -',
+          style: monoMuted, textAlign: TextAlign.center),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAF8F5), // kertas putih agak krem
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: MakaryaColors.woodBrown.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: DefaultTextStyle(
+        style: mono,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Header
+            const Text('MAKARYA',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 16,
+                    fontWeight: FontWeight.bold, color: Color(0xFF2C1A00))),
+            const Text('Kafe Buku & Kopi',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 10, color: Color(0xFF7A6040))),
+            const Text('Jl. Matraman Raya No.46, Jakarta',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: Color(0xFF7A6040))),
+            dash(),
+
+            // Info transaksi
+            row('No Trx', r.trxCode),
+            row('Kasir',  r.staffName),
+            row('Waktu',
+                '${r.trxAt.day.toString().padLeft(2,'0')}/${r.trxAt.month.toString().padLeft(2,'0')}/${r.trxAt.year}'
+                ' ${r.trxAt.hour.toString().padLeft(2,'0')}:${r.trxAt.minute.toString().padLeft(2,'0')}'),
+            dash(),
+
+            // Items
+            ...r.items.map((item) {
+              final name = r.itemNames[item.itemId] ?? 'Item';
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(name,
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 11,
+                            fontWeight: FontWeight.bold, color: Color(0xFF2C1A00))),
+                    row('  ${item.qty.toInt()}x ${_rp(item.effectiveSellPrice)}',
+                        _rp(item.lineSubtotal)),
+                  ],
+                ),
+              );
+            }),
+
+            dash(),
+
+            // Totals
+            row('Subtotal', _rp(subtotal)),
+            if (r.discountAmount > 0)
+              row('Diskon${r.bundlePromoLabel != null ? " (${r.bundlePromoLabel})" : ""}',
+                  '- ${_rp(r.discountAmount)}', color: const Color(0xFFBB4040)),
+            if (ppnAmt > 0)     row('PPN 11%',     _rp(ppnAmt)),
+            if (serviceAmt > 0) row('Service 5%',  _rp(serviceAmt)),
+            const Divider(color: Color(0xFF8B6914), thickness: 0.8, height: 10),
+            row('TOTAL', _rp(grandTotal), bold: true, color: const Color(0xFF8B6914)),
+            const SizedBox(height: 4),
+            row('Bayar (${r.paymentMethod})',
+                r.cashTendered != null ? _rp(r.cashTendered!) : '-'),
+            if ((r.changeGiven ?? 0) > 0)
+              row('Kembali', _rp(r.changeGiven!), color: const Color(0xFF2E7D55)),
+
+            dash(),
+            const SizedBox(height: 4),
+            const Text('Terima kasih!',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 12,
+                    fontWeight: FontWeight.bold, color: Color(0xFF2C1A00))),
+            const Text('Selamat membaca & menikmati kopi ☕',
+                style: TextStyle(fontFamily: 'monospace', fontSize: 9, color: Color(0xFF7A6040))),
+            const SizedBox(height: 6),
+            Text(r.trxCode,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 8, color: Color(0xFFAA9977),
+                    letterSpacing: 1.5)),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cart = widget.cart;
-    return AlertDialog(
-      backgroundColor: MakaryaColors.surface02,
-      title: Text(_paid ? '✓ Pembayaran Berhasil' : 'Proses Pembayaran',
-          style: const TextStyle(color: MakaryaColors.textPrimary, fontFamily: 'Inter', fontSize: 16)),
-      content: _paid
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.check_circle_rounded, size: 60, color: MakaryaColors.profitGreen),
-                const SizedBox(height: 12),
-                Text('Total: ${_rp(cart.grandTotal)}',
-                    style: const TextStyle(color: MakaryaColors.goldAccent, fontWeight: FontWeight.w700, fontFamily: 'Inter', fontSize: 18)),
-                if (cart.paymentMethod == PaymentMethod.cash && cart.change > 0) ...[
-                  const SizedBox(height: 6),
-                  Text('Kembalian: ${_rp(cart.change)}',
-                      style: const TextStyle(color: MakaryaColors.profitGreen, fontFamily: 'Inter')),
-                ],
-              ],
-            )
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Total: ${_rp(cart.grandTotal)}',
-                    style: const TextStyle(color: MakaryaColors.goldAccent, fontWeight: FontWeight.w700, fontFamily: 'Inter', fontSize: 18)),
-                if (cart.paymentMethod == PaymentMethod.cash) ...[
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _cashCtrl,
-                    keyboardType: TextInputType.number,
-                    style: const TextStyle(color: MakaryaColors.textPrimary, fontFamily: 'Inter'),
-                    decoration: const InputDecoration(
-                      labelText: 'Jumlah Tunai',
-                      prefixText: 'Rp ',
-                    ),
-                    onChanged: (v) {
-                      final amount = double.tryParse(v.replaceAll('.', '')) ?? 0;
-                      cart.setCashTendered(amount);
-                      setState(() {});
-                    },
-                  ),
-                  if (cart.cashTendered >= cart.grandTotal)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text('Kembalian: ${_rp(cart.change)}',
-                          style: const TextStyle(color: MakaryaColors.profitGreen, fontFamily: 'Inter')),
-                    ),
-                ],
-                if (_error != null) ...[
-                  const SizedBox(height: 8),
-                  Text(_error!, style: const TextStyle(color: MakaryaColors.lossRed, fontSize: 11, fontFamily: 'Inter')),
-                ],
-              ],
-            ),
-      actions: _paid
-          ? [
-              ElevatedButton(
-                onPressed: () { cart.clearCart(); Navigator.pop(context); },
-                child: const Text('Transaksi Baru'),
+
+    // ── SUKSES: tampil preview struk + tombol cetak ───────────────────────
+    if (_paid && _receiptData != null) {
+      return Dialog(
+        backgroundColor: MakaryaColors.surface02,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Title bar
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
+                decoration: BoxDecoration(
+                  color: MakaryaColors.profitGreen.withValues(alpha: 0.12),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_rounded, color: MakaryaColors.profitGreen, size: 22),
+                    const SizedBox(width: 8),
+                    const Text('Pembayaran Berhasil!',
+                        style: TextStyle(color: MakaryaColors.textPrimary, fontFamily: 'Inter',
+                            fontSize: 15, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    // total & kembalian
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text(_rp(_receiptData!.items.fold(0.0, (s, i) => s + i.lineSubtotal)
+                              - _receiptData!.discountAmount
+                              + (_receiptData!.items.fold(0.0, (s, i) => s + i.lineSubtotal)
+                                  - _receiptData!.discountAmount) * 0.16),
+                          style: const TextStyle(color: MakaryaColors.goldAccent,
+                              fontFamily: 'Inter', fontWeight: FontWeight.w700, fontSize: 14)),
+                      if ((_receiptData!.changeGiven ?? 0) > 0)
+                        Text('Kembali ${_rp(_receiptData!.changeGiven!)}',
+                            style: const TextStyle(color: MakaryaColors.profitGreen,
+                                fontFamily: 'Inter', fontSize: 10)),
+                    ]),
+                  ],
+                ),
               ),
-            ]
-          : [
-              TextButton(onPressed: _loading ? null : () => Navigator.pop(context), child: const Text('Batal')),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: MakaryaColors.profitGreen),
-                onPressed: (cart.paymentMethod != PaymentMethod.cash || cart.cashTendered >= cart.grandTotal) && !_loading
-                    ? () async {
-                        setState(() { _loading = true; _error = null; });
-                        final auth = context.read<AuthProvider>();
-                        final success = await cart.processPayment(auth: auth);
-                        if (success) {
-                          setState(() { _paid = true; _loading = false; });
-                        } else {
-                          setState(() { _error = cart.lastError ?? 'Gagal menyimpan transaksi'; _loading = false; });
-                        }
-                      }
-                    : null,
-                child: _loading
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Bayar'),
+
+              // Struk preview
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: _buildReceiptPreview(_receiptData!),
+                ),
+              ),
+
+              // Action buttons
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  children: [
+                    const Divider(height: 12),
+                    Row(
+                      children: [
+                        // Cetak Struk
+                        Expanded(
+                          flex: 3,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: MakaryaColors.woodBrown,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: _printing
+                                ? const SizedBox(width: 16, height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Icon(Icons.print_rounded, size: 18),
+                            label: Text(_printing ? 'Mencetak...' : 'Cetak Struk',
+                                style: const TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                            onPressed: _printing ? null : _printReceipt,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Bagikan PDF
+                        Expanded(
+                          flex: 2,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: MakaryaColors.woodBrown.withValues(alpha: 0.5)),
+                              foregroundColor: MakaryaColors.woodLight,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.share_rounded, size: 16),
+                            label: const Text('Bagikan', style: TextStyle(fontFamily: 'Inter')),
+                            onPressed: _printing ? null : _shareReceipt,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    // Transaksi baru — full width
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        style: TextButton.styleFrom(foregroundColor: MakaryaColors.textMuted),
+                        onPressed: () { cart.clearCart(); Navigator.pop(context); },
+                        child: const Text('Tutup & Transaksi Baru',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 12)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
+          ),
+        ),
+      );
+    }
+
+    // ── FORM PEMBAYARAN ───────────────────────────────────────────────────
+    return AlertDialog(
+      backgroundColor: MakaryaColors.surface02,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      title: const Text('Proses Pembayaran',
+          style: TextStyle(color: MakaryaColors.textPrimary, fontFamily: 'Inter', fontSize: 16)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(_rp(cart.grandTotal),
+              style: const TextStyle(color: MakaryaColors.goldAccent,
+                  fontWeight: FontWeight.w700, fontFamily: 'Inter', fontSize: 22)),
+          if (cart.paymentMethod == PaymentMethod.cash) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _cashCtrl,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: MakaryaColors.textPrimary, fontFamily: 'Inter'),
+              decoration: const InputDecoration(
+                labelText: 'Jumlah Tunai',
+                prefixText: 'Rp ',
+              ),
+              onChanged: (v) {
+                final amount = double.tryParse(v.replaceAll('.', '')) ?? 0;
+                cart.setCashTendered(amount);
+                setState(() {});
+              },
+            ),
+            if (cart.cashTendered >= cart.grandTotal)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('Kembalian: ${_rp(cart.change)}',
+                    style: const TextStyle(color: MakaryaColors.profitGreen, fontFamily: 'Inter')),
+              ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(_error!, style: const TextStyle(color: MakaryaColors.lossRed,
+                fontSize: 11, fontFamily: 'Inter')),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: MakaryaColors.profitGreen),
+          onPressed: (cart.paymentMethod != PaymentMethod.cash ||
+                  cart.cashTendered >= cart.grandTotal) &&
+              !_loading
+              ? () async {
+                  setState(() { _loading = true; _error = null; });
+                  final auth = context.read<AuthProvider>();
+                  // Snapshot data SEBELUM proses (untuk receipt)
+                  final staffName = auth.session?.fullName ?? 'Kasir';
+                  final snapshot  = cart.buildReceiptData(
+                    trxCode:   'PENDING',
+                    staffName: staffName,
+                  );
+                  final success = await cart.processPayment(auth: auth);
+                  if (success) {
+                    // Rebuild snapshot dengan trxCode yang sudah ter-generate
+                    final finalReceipt = cart.buildReceiptData(
+                      trxCode:   cart.lastTrxCode ?? snapshot.trxCode,
+                      staffName: staffName,
+                    );
+                    setState(() {
+                      _receiptData = finalReceipt;
+                      _paid        = true;
+                      _loading     = false;
+                    });
+                  } else {
+                    setState(() {
+                      _error   = cart.lastError ?? 'Gagal menyimpan transaksi';
+                      _loading = false;
+                    });
+                  }
+                }
+              : null,
+          child: _loading
+              ? const SizedBox(width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Bayar'),
+        ),
+      ],
     );
   }
 }

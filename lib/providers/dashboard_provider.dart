@@ -165,6 +165,7 @@ class DashboardProvider extends ChangeNotifier {
           callback: (payload) {
             debugPrint('🔔 Realtime INSERT: ${payload.newRecord['trx_code']}');
             _loadAllData();
+            loadSkuProfitability();
           },
         )
         .onPostgresChanges(
@@ -175,8 +176,9 @@ class DashboardProvider extends ChangeNotifier {
             // Cek status di dalam callback — hindari FilterType yang
             // tidak tersedia di semua versi supabase_flutter
             if (payload.newRecord['status'] == 'DONE') {
-              debugPrint("🔔 Realtime UPDATE→DONE: ${payload.newRecord['trx_code']}");
+              debugPrint(" Realtime UPDATE→DONE: ${payload.newRecord['trx_code']}");
               _loadAllData();
+              loadSkuProfitability();
             }
           },
         )
@@ -184,7 +186,7 @@ class DashboardProvider extends ChangeNotifier {
           if (error != null) {
             debugPrint(' Realtime subscription error: $error');
           } else {
-            debugPrint('✅ Realtime subscribed — status: $status');
+            debugPrint(' Realtime subscribed — status: $status');
           }
         });
   }
@@ -221,17 +223,20 @@ class DashboardProvider extends ChangeNotifier {
   String _periodStart() {
     final now = DateTime.now(); // local = WIB
     return switch (_selectedPeriod) {
-      // [FIX-1] toUtc() — midnight WIB dikonversi ke UTC sebelum dikirim ke Supabase
+      // midnight WIB hari ini → UTC
       PeriodFilter.today  => DateTime(now.year, now.month, now.day).toUtc().toIso8601String(),
-      PeriodFilter.week   => now.subtract(const Duration(days: 7)).toUtc().toIso8601String(),
-      PeriodFilter.month  => now.subtract(const Duration(days: 30)).toUtc().toIso8601String(),
+      // midnight WIB 7 hari lalu → UTC
+      PeriodFilter.week   => DateTime(now.year, now.month, now.day).subtract(const Duration(days: 7)).toUtc().toIso8601String(),
+      // midnight WIB 30 hari lalu → UTC
+      PeriodFilter.month  => DateTime(now.year, now.month, now.day).subtract(const Duration(days: 30)).toUtc().toIso8601String(),
       PeriodFilter.custom => (_customStart != null
           ? DateTime(_customStart!.year, _customStart!.month, _customStart!.day).toUtc().toIso8601String()
           : DateTime(now.year, now.month, now.day).toUtc().toIso8601String()),
     };
   }
 
-  // [FIX-2] _periodEnd juga UTC
+  // _periodEnd → selalu end of day WIB (23:59:59) dikonversi ke UTC
+  // Ini penting agar transaksi yang masuk sepanjang hari selalu keambil
   String _periodEnd() {
     final now = DateTime.now();
     if (_selectedPeriod == PeriodFilter.custom && _customEnd != null) {
@@ -239,7 +244,8 @@ class DashboardProvider extends ChangeNotifier {
           .toUtc()
           .toIso8601String();
     }
-    return now.toUtc().toIso8601String();
+    // End of day WIB = besok midnight UTC - 1 detik
+    return DateTime(now.year, now.month, now.day, 23, 59, 59).toUtc().toIso8601String();
   }
 
   // ── Load All Data ──────────────────────────────────────────────────────────
@@ -378,66 +384,89 @@ class DashboardProvider extends ChangeNotifier {
     }
   }
 
-  // ── Load SKU Profitability Matrix ──────────────────────────────────────────
+    // ── Load SKU Profitability Matrix ──────────────────────────────────────────
  Future<void> loadSkuProfitability() async {
   _skuLoading = true;
   notifyListeners();
 
   try {
-    // Query dari transactions langsung — filter status & tanggal di main table
-    final data = await _supabase
+    debugPrint('🔍 SKU [1] periodStart='+_periodStart()+' periodEnd='+_periodEnd());
+
+    // Step 1: ambil transaction_id yang DONE dalam periode ini
+    final trxRows = await _supabase
         .from('transactions')
-        .select('''
-          trx_at,
-          transaction_details(
-            qty,
-            unit_sell_price,
-            unit_cogs,
-            unit_discount,
-            items(id, sku, name, category_id)
-          )
-        ''')
+        .select('id')
         .eq('status', 'DONE')
         .gte('trx_at', _periodStart())
         .lte('trx_at', _periodEnd());
 
-    // Aggregate by SKU
+    debugPrint('🔍 SKU [2] trxRows.length='+trxRows.length.toString());
+
+    if (trxRows.isEmpty) {
+      _skuProfitability = [];
+      return;
+    }
+
+    final trxIds = trxRows.map((t) => t['id'] as int).toList();
+
+    // Step 2: ambil detail transaksi + item info (flat, tanpa nested categories)
+    final detailRows = await _supabase
+        .from('transaction_details')
+        .select('qty, unit_sell_price, cost_at_time, unit_discount, item_id, items(id, sku, name, category_id)')
+        .inFilter('transaction_id', trxIds);
+
+    debugPrint('🔍 SKU [3] detailRows.length='+detailRows.length.toString());
+    if (detailRows.isNotEmpty) debugPrint('🔍 SKU [3] sample row: '+detailRows.first.toString());
+
+    // Step 3: ambil semua categories sekali untuk mapping id → code
+    final catRows = await _supabase
+        .from('categories')
+        .select('id, code');
+
+    debugPrint('🔍 SKU [4] catRows: '+catRows.toString());
+
+    final catMap = <int, String>{
+      for (final c in catRows)
+        (c['id'] as int): (c['code'] as String),
+    };
+
+    // Step 4: aggregate by SKU
     final Map<String, Map<String, dynamic>> skuMap = {};
 
-    for (final trx in data) {
-      final details = trx['transaction_details'] as List? ?? [];
-      for (final row in details) {
-        final item = row['items'];
-        if (item == null) continue;
+    for (final row in detailRows) {
+      final item = row['items'];
+      if (item == null) continue;
 
-        final sku      = item['sku']  as String;
-        final name     = item['name'] as String;
-        final category = (item['category_id'] ?? '').toString();
-        final qty      = (row['qty']            as num).toDouble();
-        final price    = (row['unit_sell_price'] as num).toDouble();
-        final cogs     = (row['unit_cogs']       as num? ?? 0).toDouble();
-        final discount = (row['unit_discount']   as num? ?? 0).toDouble();
+      final sku      = item['sku']  as String;
+      final name     = item['name'] as String;
+      final catId    = item['category_id'] as int? ?? 0;
+      final category = catMap[catId] ?? '';
+      final qty      = (row['qty']            as num).toDouble();
+      final price    = (row['unit_sell_price'] as num).toDouble();
+      final cogs     = (row['cost_at_time']    as num? ?? 0).toDouble();
+      final discount = (row['unit_discount']   as num? ?? 0).toDouble();
 
-        final lineRevenue = qty * (price - discount);
-        final lineCogs    = qty * cogs;
-        final lineGP      = lineRevenue - lineCogs;
+      final lineRevenue = qty * (price - discount);
+      final lineCogs    = qty * cogs;
+      final lineGP      = lineRevenue - lineCogs;
 
-        skuMap.putIfAbsent(sku, () => {
-          'sku':      sku,
-          'name':     name,
-          'category': category,
-          'revenue':  0.0,
-          'cogs':     0.0,
-          'gp':       0.0,
-          'units':    0,
-        });
+      skuMap.putIfAbsent(sku, () => {
+        'sku':      sku,
+        'name':     name,
+        'category': category,
+        'revenue':  0.0,
+        'cogs':     0.0,
+        'gp':       0.0,
+        'units':    0,
+      });
 
-        skuMap[sku]!['revenue'] = (skuMap[sku]!['revenue'] as double) + lineRevenue;
-        skuMap[sku]!['cogs']    = (skuMap[sku]!['cogs']    as double) + lineCogs;
-        skuMap[sku]!['gp']      = (skuMap[sku]!['gp']      as double) + lineGP;
-        skuMap[sku]!['units']   = (skuMap[sku]!['units']   as int)    + qty.toInt();
-      }
+      skuMap[sku]!['revenue'] = (skuMap[sku]!['revenue'] as double) + lineRevenue;
+      skuMap[sku]!['cogs']    = (skuMap[sku]!['cogs']    as double) + lineCogs;
+      skuMap[sku]!['gp']      = (skuMap[sku]!['gp']      as double) + lineGP;
+      skuMap[sku]!['units']   = (skuMap[sku]!['units']   as int)    + qty.toInt();
     }
+
+    debugPrint('🔍 SKU [5] skuMap.length='+skuMap.length.toString());
 
     final totalRevenue = skuMap.values.fold(0.0, (s, v) => s + (v['revenue'] as double));
 
@@ -457,8 +486,11 @@ class DashboardProvider extends ChangeNotifier {
       );
     }).toList();
 
-  } catch (e) {
-    debugPrint(' loadSkuProfitability error: $e');
+    debugPrint('🔍 SKU [6] DONE _skuProfitability.length='+_skuProfitability.length.toString());
+
+  } catch (e, st) {
+    debugPrint('🔍 SKU ERROR: $e');
+    debugPrint('🔍 SKU STACKTRACE: $st');
   } finally {
     _skuLoading = false;
     notifyListeners();
@@ -475,7 +507,7 @@ class DashboardProvider extends ChangeNotifier {
             tax_amount, service_amount, payment_method, cash_tendered, change_given,
             trx_at, has_book, has_cafe, staff_name,
             transaction_details(
-              qty, unit_sell_price, unit_cogs, unit_discount,
+              qty, unit_sell_price, cost_at_time, unit_discount,
               items(id, sku, name, name_short, category_id)
             )
           ''')

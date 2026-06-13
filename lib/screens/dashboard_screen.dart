@@ -1,5 +1,5 @@
-﻿// =============================================================================
-// MAKARYA HYBRID ERP — Dashboard Screen 
+// =============================================================================
+// MAKARYA HYBRID ERP — Dashboard Screen (Glassmorphism Refactored)
 // File: lib/screens/dashboard_screen.dart
 // =============================================================================
 
@@ -10,6 +10,7 @@ import '../providers/dashboard_provider.dart';
 import '../providers/auth_provider.dart';
 import '../logic/business_logic.dart';
 import '../theme/makarya_theme.dart';
+import '../widgets/glass_widgets.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN SCREEN
@@ -27,7 +28,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Panggil initialize() setelah frame pertama selesai render
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) context.read<DashboardProvider>().initialize();
     });
@@ -53,14 +53,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           color: MakaryaColors.woodBrown,
           backgroundColor: MakaryaColors.surface01,
           onRefresh: dash.refresh,
-          child: GlassBackground(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(32, 24, 32, 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _DashboardHeader(dash: dash, onRefresh: _handleRefresh, refreshing: _refreshing),
+                  _DashboardHeader(
+                    dash: dash,
+                    onRefresh: _handleRefresh,
+                    refreshing: _refreshing,
+                  ),
                   const SizedBox(height: 24),
                   _KpiRow(pnl: dash.todayPnl, dash: dash),
                   const SizedBox(height: 20),
@@ -93,7 +96,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 8),
                 ],
               ),
-            ),
           ),
         );
       },
@@ -143,12 +145,19 @@ class _DashboardHeader extends StatelessWidget {
             children: [
               Text(
                 'Halo, $firstName! ${_greetingEmoji()}',
-                style: const TextStyle(
-                  fontSize:     24,
-                  fontWeight:   FontWeight.w700,
+                style: TextStyle(
+                  fontSize:     26,
+                  fontWeight:   FontWeight.w800,
                   color:        MakaryaColors.textPrimary,
                   fontFamily:   'Inter',
                   letterSpacing: -0.5,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 3),
@@ -156,8 +165,15 @@ class _DashboardHeader extends StatelessWidget {
                 'Ini yang terjadi di toko kamu hari ini.',
                 style: TextStyle(
                   fontSize:   13,
-                  color:      MakaryaColors.textSecondary.withValues(alpha: 0.8),
+                  color:      MakaryaColors.textSecondary.withValues(alpha: 0.9),
                   fontFamily: 'Inter',
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -171,9 +187,9 @@ class _DashboardHeader extends StatelessWidget {
             child: AnimatedRotation(
               turns:    refreshing ? 1 : 0,
               duration: const Duration(milliseconds: 600),
-              child: GlassPanel(
+              child: GlassContainer(
                 borderRadius: 10,
-                showShimmer: false,
+                blurSigma: 8,
                 padding: const EdgeInsets.all(8),
                 child: Icon(
                   Icons.refresh_rounded,
@@ -218,9 +234,9 @@ class _PeriodChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => _showPeriodSheet(context, dash),
-      child: GlassPanel(
+      child: GlassContainer(
         borderRadius: 20,
-        showShimmer: false,
+        blurSigma: 8,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -289,7 +305,7 @@ class _PeriodChip extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// KPI ROW
+// KPI ROW  (GlassCard-based metric cards)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _KpiRow extends StatelessWidget {
@@ -297,29 +313,31 @@ class _KpiRow extends StatelessWidget {
   final DashboardProvider    dash;
   const _KpiRow({this.pnl, required this.dash});
 
-  String _rp(double v) => 'Rp ${v.toStringAsFixed(0).replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.')}';
+  String _rp(double v) => 'Rp ' + v.toStringAsFixed(0).replaceAllMapped(
+    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.') ;
 
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
     final isTablet = Responsive.isTablet(context);
-    
+
     final net    = pnl?.netRevenue ?? 0;
     final profit = pnl?.netProfit  ?? 0;
     final totalOrders    = dash.totalOrders;
     final totalVisitors  = dash.totalVisitors;
 
     final cards = [
-      MetricCard(
+      _GlassMetricCard(
         label:    'Total Revenue',
         value:    _rp(net),
         icon:     Icons.attach_money_rounded,
         trend:    '+2.6%',
         trendUp:  true,
         subtitle: 'Bulan ini vs lalu',
+        isHero:   true,
+        ambientColor: Colors.teal,
       ),
-      MetricCard(
+      _GlassMetricCard(
         label:    'Total Orders',
         value:    '$totalOrders',
         icon:     Icons.receipt_long_rounded,
@@ -327,7 +345,7 @@ class _KpiRow extends StatelessWidget {
         trendUp:  true,
         subtitle: 'Bulan ini vs lalu',
       ),
-      MetricCard(
+      _GlassMetricCard(
         label:    'Total Visitors',
         value:    '$totalVisitors',
         icon:     Icons.people_alt_rounded,
@@ -335,13 +353,14 @@ class _KpiRow extends StatelessWidget {
         trendUp:  true,
         subtitle: 'Bulan ini vs lalu',
       ),
-      MetricCard(
+      _GlassMetricCard(
         label:    'Net Profit',
         value:    _rp(profit),
         icon:     Icons.trending_up_rounded,
         trend:    profit >= 0 ? '+5.0%' : '-1.2%',
         trendUp:  profit >= 0,
         subtitle: 'Setelah OPEX & waste',
+        ambientColor: Colors.orange,
       ),
     ];
 
@@ -377,7 +396,7 @@ class _KpiRow extends StatelessWidget {
         final isLast = e.key == cards.length - 1;
         return Expanded(
           child: Padding(
-            padding: EdgeInsets.only(right: isLast ? 0 : 16),
+            padding: EdgeInsets.only(right: isLast ? 0 : 24),
             child: e.value,
           ),
         );
@@ -385,6 +404,137 @@ class _KpiRow extends StatelessWidget {
     );
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GLASS METRIC CARD  (replaces legacy MetricCard on this screen)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GlassMetricCard extends StatelessWidget {
+  final String   label;
+  final String   value;
+  final IconData icon;
+  final String   trend;
+  final bool     trendUp;
+  final String   subtitle;
+  final bool     isHero;
+  final Color?   ambientColor;
+
+  const _GlassMetricCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.trend,
+    required this.trendUp,
+    required this.subtitle,
+    this.isHero = false,
+    this.ambientColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      blurSigma: 10,
+      tintColor: isHero ? ambientColor : null,
+      padding: const EdgeInsets.all(24),
+      borderSide: ambientColor != null 
+          ? BorderSide(color: ambientColor!.withValues(alpha: isHero ? 0.30 : 0.15), width: 1.2)
+          : null,
+      boxShadow: ambientColor != null 
+          ? [
+              BoxShadow(
+                color: ambientColor!.withValues(alpha: isHero ? 0.12 : 0.04),
+                blurRadius: isHero ? 32 : 24,
+                offset: Offset(0, isHero ? 12 : 8),
+                spreadRadius: -4,
+              )
+            ] 
+          : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                label.toUpperCase(),
+                style: TextStyle(
+                  fontSize:   11,
+                  fontWeight: FontWeight.w600,
+                  color:      MakaryaColors.textMuted,
+                  fontFamily: 'Inter',
+                  letterSpacing: 1.2,
+                ),
+              ),
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: MakaryaColors.iconBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: MakaryaColors.iconBorder,
+                    width: 0.5,
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  size:  18,
+                  color: MakaryaColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize:   isHero ? 34 : 28,
+              fontWeight: isHero ? FontWeight.w800 : (ambientColor != null ? FontWeight.w700 : FontWeight.w600),
+              color:      Colors.white,
+              fontFamily: 'Inter',
+              height:     1.1,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(
+                trendUp ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                size:  14,
+                color: trendUp ? MakaryaColors.profitGreen : MakaryaColors.lossRed,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                trend,
+                style: TextStyle(
+                  fontSize:   12,
+                  fontWeight: FontWeight.w700,
+                  color:      trendUp ? MakaryaColors.profitGreen : MakaryaColors.lossRed,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize:   11,
+                    color:      MakaryaColors.textMuted,
+                    fontFamily: 'Inter',
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // REVENUE BAR CHART
 // ─────────────────────────────────────────────────────────────────────────────
@@ -403,7 +553,8 @@ class _RevenueChartCard extends StatelessWidget {
         ? 100000.0
         : points.map((p) => p.revenue).reduce((a, b) => a > b ? a : b) * 1.2;
 
-    return GlassPanel(
+    return GlassCard(
+      blurSigma: 10,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -459,14 +610,14 @@ class _RevenueChartCard extends StatelessWidget {
                         touchTooltipData: BarTouchTooltipData(
                           getTooltipColor: (_) =>
                               MakaryaColors.surface02.withValues(alpha: 0.95),
-                          getTooltipItem: (group, gi, rod, ri) {
+                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
                             final p = points[group.x];
-                            final label = '${p.date.day}/${p.date.month}';
+                            final label = p.date.day.toString() + '/' + p.date.month.toString();
                             final val = rod.toY >= 1000000
-                                ? '${(rod.toY / 1000000).toStringAsFixed(1)}jt'
-                                : '${(rod.toY / 1000).toStringAsFixed(0)}rb';
+                                ? (rod.toY / 1000000).toStringAsFixed(1) + 'jt'
+                                : (rod.toY / 1000).toStringAsFixed(0) + 'rb';
                             return BarTooltipItem(
-                              '$label\nRp $val',
+                              label + '\nRp ' + val,
                               const TextStyle(
                                   color: MakaryaColors.textPrimary,
                                   fontSize: 10,
@@ -489,7 +640,7 @@ class _RevenueChartCard extends StatelessWidget {
                               return Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
-                                  '${points[idx].date.day} ${_monthShort(points[idx].date.month)}',
+                                  points[idx].date.day.toString() + ' ' + _monthShort(points[idx].date.month),
                                   style: const TextStyle(
                                       fontSize:   9,
                                       color:      MakaryaColors.textMuted,
@@ -506,9 +657,9 @@ class _RevenueChartCard extends StatelessWidget {
                             getTitlesWidget: (v, meta) {
                               if (v == 0) return const SizedBox.shrink();
                               final label = v >= 1000000
-                                  ? '${(v / 1000000).toStringAsFixed(0)}jt'
+                                  ? (v / 1000000).toStringAsFixed(0) + 'jt'
                                   : v >= 1000
-                                      ? '${(v / 1000).toStringAsFixed(0)}rb'
+                                      ? (v / 1000).toStringAsFixed(0) + 'rb'
                                       : v.toInt().toString();
                               return Text(
                                 label,
@@ -526,10 +677,10 @@ class _RevenueChartCard extends StatelessWidget {
                       gridData: FlGridData(
                         show:             true,
                         drawVerticalLine: false,
-                        horizontalInterval: maxY / 4,
+                        horizontalInterval: maxY > 0 ? maxY / 4 : 1,
                         getDrawingHorizontalLine: (_) => FlLine(
-                          color:       MakaryaColors.glassBorder,
-                          strokeWidth: 0.5,
+                          color:       Colors.white.withValues(alpha: 0.05),
+                          strokeWidth: 1.0,
                         ),
                       ),
                       borderData: FlBorderData(show: false),
@@ -592,7 +743,8 @@ class _SalesByCategoryCardState extends State<_SalesByCategoryCard> {
   Widget build(BuildContext context) {
     final mix = widget.mix;
 
-    return GlassPanel(
+    return GlassCard(
+      blurSigma: 10,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -670,7 +822,7 @@ class _SalesByCategoryCardState extends State<_SalesByCategoryCard> {
                           color:     color,
                           radius:    isTouched ? 62 : 50,
                           showTitle: isTouched,
-                          title:     '${pct.toStringAsFixed(0)}%',
+                          title:     pct.toStringAsFixed(0) + '%',
                           titleStyle: const TextStyle(
                             fontSize:   11,
                             fontWeight: FontWeight.w700,
@@ -712,7 +864,7 @@ class _SalesByCategoryCardState extends State<_SalesByCategoryCard> {
                               ),
                             ),
                             Text(
-                              '${pct.toStringAsFixed(0)}%',
+                              pct.toStringAsFixed(0) + '%',
                               style: TextStyle(
                                 fontSize:   13,
                                 fontWeight: FontWeight.w700,
@@ -743,7 +895,7 @@ class _SalesByCategoryCardState extends State<_SalesByCategoryCard> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ORDERS & CUSTOMERS ROW
+// ORDERS & CUSTOMERS ROW  (Responsive: stacks on mobile)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _OrdersCustomersRow extends StatelessWidget {
@@ -754,134 +906,151 @@ class _OrdersCustomersRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final orders    = dash.totalOrders;
     final customers = dash.totalVisitors;
+    final isMobile  = Responsive.isMobile(context);
 
-    return Row(children: [
-      Expanded(
-        child: GlassPanel(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final ordersCard = GlassCard(
+      blurSigma: 10,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: MakaryaColors.iconBg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: MakaryaColors.iconBorder,
+                width: 0.5,
+              ),
+            ),
+            child: const Icon(
+              Icons.inventory_2_rounded,
+              size: 18,
+              color: MakaryaColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: MakaryaColors.iconBg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: MakaryaColors.iconBorder,
-                    width: 0.5,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.inventory_2_rounded,
-                  size: 18,
-                  color: MakaryaColors.textSecondary,
+              Text(
+                orders.toString(),
+                style: const TextStyle(
+                  fontSize:   32,
+                  fontWeight: FontWeight.w800,
+                  color:      MakaryaColors.textPrimary,
+                  fontFamily: 'Inter',
+                  height:     1.0,
+                  letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '$orders',
-                    style: const TextStyle(
-                      fontSize:   32,
-                      fontWeight: FontWeight.w800,
-                      color:      MakaryaColors.textPrimary,
-                      fontFamily: 'Inter',
-                      height:     1.0,
-                      letterSpacing: -0.5,
-                    ),
+              const SizedBox(width: 8),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'orders',
+                  style: TextStyle(
+                    fontSize:   14,
+                    fontWeight: FontWeight.w500,
+                    color:      MakaryaColors.textSecondary,
+                    fontFamily: 'Inter',
                   ),
-                  const SizedBox(width: 8),
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      'orders',
-                      style: TextStyle(
-                        fontSize:   14,
-                        fontWeight: FontWeight.w500,
-                        color:      MakaryaColors.textSecondary,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _HighlightedText(
-                text:      '${dash.alertCount} pesanan menunggu konfirmasi.',
-                highlight: '${dash.alertCount} pesanan',
-                color:     MakaryaColors.lossRed,
+                ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 8),
+          _HighlightedText(
+            text:      dash.alertCount.toString() + ' pesanan menunggu konfirmasi.',
+            highlight: dash.alertCount.toString() + ' pesanan',
+            color:     MakaryaColors.lossRed,
+          ),
+        ],
       ),
-      const SizedBox(width: 16),
-      Expanded(
-          child: GlassPanel(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    );
+
+    final customersCard = GlassCard(
+      blurSigma: 10,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: MakaryaColors.iconBg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: MakaryaColors.iconBorder,
+                width: 0.5,
+              ),
+            ),
+            child: const Icon(
+              Icons.person_add_alt_1_rounded,
+              size: 18,
+              color: MakaryaColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: MakaryaColors.iconBg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: MakaryaColors.iconBorder,
-                    width: 0.5,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.person_add_alt_1_rounded,
-                  size: 18,
-                  color: MakaryaColors.textSecondary,
+              Text(
+                customers.toString(),
+                style: const TextStyle(
+                  fontSize:   32,
+                  fontWeight: FontWeight.w800,
+                  color:      MakaryaColors.textPrimary,
+                  fontFamily: 'Inter',
+                  height:     1.0,
+                  letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '$customers',
-                    style: const TextStyle(
-                      fontSize:   32,
-                      fontWeight: FontWeight.w800,
-                      color:      MakaryaColors.textPrimary,
-                      fontFamily: 'Inter',
-                      height:     1.0,
-                      letterSpacing: -0.5,
-                    ),
+              const SizedBox(width: 8),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text(
+                  'customers',
+                  style: TextStyle(
+                    fontSize:   14,
+                    fontWeight: FontWeight.w500,
+                    color:      MakaryaColors.textSecondary,
+                    fontFamily: 'Inter',
                   ),
-                  const SizedBox(width: 8),
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 4),
-                    child: Text(
-                      'customers',
-                      style: TextStyle(
-                        fontSize:   14,
-                        fontWeight: FontWeight.w500,
-                        color:      MakaryaColors.textSecondary,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _HighlightedText(
-                text:      '$customers customers menunggu respons.',
-                highlight: '$customers customers',
-                color:     MakaryaColors.lossRed,
+                ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 8),
+          _HighlightedText(
+            text:      customers.toString() + ' customers menunggu respons.',
+            highlight: customers.toString() + ' customers',
+            color:     MakaryaColors.lossRed,
+          ),
+        ],
       ),
-    ]);
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ordersCard,
+          const SizedBox(height: 16),
+          customersCard,
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: ordersCard),
+        const SizedBox(width: 16),
+        Expanded(child: customersCard),
+      ],
+    );
   }
 }
 

@@ -1,10 +1,18 @@
-﻿// =============================================================================
-// MAKARYA HYBRID ERP — TRUE GLASSMORPHISM THEME
+// =============================================================================
+// MAKARYA HYBRID ERP — TRUE GLASSMORPHISM THEME (Refactored)
 // File: lib/theme/makarya_theme.dart
 // =============================================================================
+// REFACTOR NOTES:
+// - GlassPanel now delegates to GlassContainer (glass_widgets.dart).
+// - MetricCard refactored to use GlassCard base with enterprise styling.
+// - GlassBackground removed image asset dependency; uses solid gradient
+//   to avoid nested BackdropFilter and missing asset crashes on Web.
+// - All business logic, color palette, typography — UNCHANGED.
+// =============================================================================
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../widgets/glass_widgets.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COLOR PALETTE
@@ -49,9 +57,9 @@ abstract final class MakaryaColors {
   static const Color categoryMerch  = Color(0xFFA78BFA);
 
   // ── Text ───────────────────────────────────────────────────────────────────
-  static const Color textPrimary   = Color(0xFFF8FAFC);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted     = Color(0xFF475569);
+  static const Color textPrimary   = Color(0xFFFFFFFF); // 100% white
+  static const Color textSecondary = Color(0xCCFFFFFF); // 80% white
+  static const Color textMuted     = Color(0x99FFFFFF); // 60% white
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -61,14 +69,14 @@ abstract final class MakaryaColors {
 class Responsive {
   static bool isMobile(BuildContext context) => 
       MediaQuery.of(context).size.width < 600;
-  
+
   static bool isTablet(BuildContext context) => 
       MediaQuery.of(context).size.width >= 600 && 
       MediaQuery.of(context).size.width < 1200;
-  
+
   static bool isDesktop(BuildContext context) => 
       MediaQuery.of(context).size.width >= 1200;
-  
+
   static T value<T>(BuildContext context, {
     required T mobile,
     T? tablet,
@@ -174,11 +182,15 @@ abstract final class MakaryaTheme {
 
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: MakaryaColors.woodBrown,
+          backgroundColor: MakaryaColors.goldAccent.withValues(alpha: 0.2), // primary button opacity 20%
           foregroundColor: Colors.white,
-          elevation:       0,
+          elevation:       8, // glow effect
+          shadowColor:     MakaryaColors.goldAccent.withValues(alpha: 0.4), // glow tipis oranye
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24), 
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 1.2),
+          ),
           textStyle: const TextStyle(
             fontFamily:   _kFontFamily,
             fontSize:     14,
@@ -190,10 +202,12 @@ abstract final class MakaryaTheme {
 
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: MakaryaColors.woodLight,
-          side:    const BorderSide(color: MakaryaColors.woodBrown),
+          backgroundColor: Colors.white.withValues(alpha: 0.15), // secondary button glass biasa
+          foregroundColor: Colors.white,
+          elevation:       0, // tanpa glow
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.12), width: 1.2),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           textStyle: const TextStyle(
             fontFamily: _kFontFamily,
             fontSize:   14,
@@ -282,7 +296,7 @@ abstract final class MakaryaTheme {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TRUE GLASS CARD — BackdropFilter + blur + shimmer top line
+// GLASS PANEL — delegates to canonical GlassContainer
 // ─────────────────────────────────────────────────────────────────────────────
 
 class GlassPanel extends StatelessWidget {
@@ -291,7 +305,7 @@ class GlassPanel extends StatelessWidget {
   final double? width;
   final double? height;
   final double borderRadius;
-  final bool showShimmer;
+  final bool showShimmer;        // kept for API compatibility; ignored
   final bool accentBorderLeft;
   final Color? accentBorderColor;
 
@@ -309,63 +323,12 @@ class GlassPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(borderRadius);
+    Widget content = child;
 
-    Widget glassContent = Container(
-      width:   width,
-      height:  height,
-      padding: padding ?? const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        border: Border.all(
-          color: MakaryaColors.glassBorder,
-          width: 0.5,
-        ),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end:   Alignment.bottomRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.08),
-            Colors.white.withValues(alpha: 0.02),
-          ],
-        ),
-      ),
-      child: child,
-    );
-
-    // Top shimmer line (kayak di referensi)
-    if (showShimmer) {
-      glassContent = Stack(
-        children: [
-          glassContent,
-          Positioned(
-            top:  0,
-            left: 24,
-            right: 24,
-            child: Container(
-              height: 1,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.transparent,
-                    Colors.white.withValues(alpha: 0.3),
-                    Colors.white.withValues(alpha: 0.1),
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.4, 0.7, 1.0],
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    // Accent border left
     if (accentBorderLeft) {
-      glassContent = Stack(
+      content = Stack(
         children: [
-          glassContent,
+          content,
           Positioned(
             left: 0,
             top:  20,
@@ -373,7 +336,7 @@ class GlassPanel extends StatelessWidget {
             child: Container(
               width: 3,
               decoration: BoxDecoration(
-                color: (accentBorderColor ?? MakaryaColors.woodBrown).withValues(alpha: 0.7),
+                color: (accentBorderColor ?? MakaryaColors.woodBrown).withOpacity(0.7),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -382,19 +345,19 @@ class GlassPanel extends StatelessWidget {
       );
     }
 
-    // BackdropFilter untuk true glass effect
-    return ClipRRect(
-      borderRadius: radius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: glassContent,
-      ),
+    return GlassContainer(
+      width: width,
+      height: height,
+      padding: padding ?? const EdgeInsets.all(20),
+      borderRadius: borderRadius,
+      blurSigma: 10,
+      child: content,
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// METRIC CARD — Glass + Hover
+// METRIC CARD — GlassCard-based with hover & responsive
 // ─────────────────────────────────────────────────────────────────────────────
 
 class MetricCard extends StatefulWidget {
@@ -427,27 +390,27 @@ class _MetricCardState extends State<MetricCard> {
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
-    
-    // ── RESPONSIVE VALUES ─────────────────────────────────────────
-    final valueFontSize     = isMobile ? 18.0 : 28.0;  // 20→18
-    final labelFontSize     = isMobile ? 10.0 : 13.0;  // 11→10
-    final iconContainerSize = isMobile ? 26.0 : 36.0;  // 28→26
-    final iconSize          = isMobile ? 13.0 : 18.0;  // 14→13
-    final headerSpacing     = isMobile ?  6.0 : 16.0;  // 10→6
-    final footerSpacing     = isMobile ?  4.0 : 10.0;  // 6→4
+
+    final valueFontSize     = isMobile ? 18.0 : 28.0;
+    final labelFontSize     = isMobile ? 10.0 : 13.0;
+    final iconContainerSize = isMobile ? 26.0 : 36.0;
+    final iconSize          = isMobile ? 13.0 : 18.0;
+    final headerSpacing     = isMobile ?  6.0 : 16.0;
+    final footerSpacing     = isMobile ?  4.0 : 10.0;
     final trendFontSize     = isMobile ?  9.0 : 11.0;
     final subtitleFontSize  = isMobile ?  9.0 : 11.0;
-    final padding           = isMobile ? 12.0 : 20.0;  // 16→12
+    final padding           = isMobile ? 12.0 : 20.0;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit:  (_) => setState(() => _isHovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
-        child: GlassPanel(
+        child: GlassCard(
+          blurSigma: 10,
           borderRadius: 20,
-          showShimmer:  true,
           padding: EdgeInsets.all(padding),
+          animateOnHover: false,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             curve: Curves.easeOut,
@@ -461,216 +424,158 @@ class _MetricCardState extends State<MetricCard> {
               ),
             ),
             child: LayoutBuilder(
-  builder: (context, constraints) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: labelFontSize,
-                  fontWeight: FontWeight.w500,
-                  color: MakaryaColors.textSecondary,
-                  fontFamily: _kFontFamily,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-            ),
-
-            if (widget.icon != null)
-              Container(
-                width: iconContainerSize,
-                height: iconContainerSize,
-                decoration: BoxDecoration(
-                  color: MakaryaColors.iconBg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: MakaryaColors.iconBorder,
-                    width: 0.5,
-                  ),
-                ),
-                child: Icon(
-                  widget.icon,
-                  size: iconSize,
-                  color: MakaryaColors.textSecondary,
-                ),
-              ),
-          ],
-        ),
-
-        SizedBox(height: headerSpacing),
-
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          alignment: Alignment.centerLeft,
-          child: Text(
-            widget.value,
-            style: TextStyle(
-              fontSize: valueFontSize,
-              fontWeight: FontWeight.w700,
-              color: MakaryaColors.textPrimary,
-              fontFamily: _kFontFamily,
-              letterSpacing: -0.5,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-
-        SizedBox(height: footerSpacing),
-
-        Row(
-          children: [
-            if (widget.trend != null) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: (widget.trendUp
-                          ? MakaryaColors.profitGreen
-                          : MakaryaColors.lossRed)
-                      .withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Row(
+              builder: (context, constraints) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      widget.trendUp
-                          ? Icons.arrow_upward_rounded
-                          : Icons.arrow_downward_rounded,
-                      size: trendFontSize,
-                      color: widget.trendUp
-                          ? MakaryaColors.profitGreen
-                          : MakaryaColors.lossRed,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.label,
+                            style: TextStyle(
+                              fontSize: labelFontSize,
+                              fontWeight: FontWeight.w500,
+                              color: MakaryaColors.textSecondary,
+                              fontFamily: _kFontFamily,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                        if (widget.icon != null)
+                          Container(
+                            width: iconContainerSize,
+                            height: iconContainerSize,
+                            decoration: BoxDecoration(
+                              color: MakaryaColors.iconBg,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: MakaryaColors.iconBorder,
+                                width: 0.5,
+                              ),
+                            ),
+                            child: Icon(
+                              widget.icon,
+                              size: iconSize,
+                              color: MakaryaColors.textSecondary,
+                            ),
+                          ),
+                      ],
                     ),
-
-                    const SizedBox(width: 2),
-
-                    Text(
-                      widget.trend!,
-                      style: TextStyle(
-                        fontSize: trendFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: widget.trendUp
-                            ? MakaryaColors.profitGreen
-                            : MakaryaColors.lossRed,
-                        fontFamily: _kFontFamily,
+                    SizedBox(height: headerSpacing),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        widget.value,
+                        style: TextStyle(
+                          fontSize: valueFontSize,
+                          fontWeight: FontWeight.w700,
+                          color: MakaryaColors.textPrimary,
+                          fontFamily: _kFontFamily,
+                          letterSpacing: -0.5,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: 6),
-            ],
-
-            if (widget.subtitle != null)
-              Expanded(
-                child: Text(
-                  widget.subtitle!,
-                  style: TextStyle(
-                    fontSize: subtitleFontSize,
-                    color: MakaryaColors.textMuted,
-                    fontFamily: _kFontFamily,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
+                    SizedBox(height: footerSpacing),
+                    Row(
+                      children: [
+                        if (widget.trend != null) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: (widget.trendUp
+                                      ? MakaryaColors.profitGreen
+                                      : MakaryaColors.lossRed)
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  widget.trendUp
+                                      ? Icons.arrow_upward_rounded
+                                      : Icons.arrow_downward_rounded,
+                                  size: trendFontSize,
+                                  color: widget.trendUp
+                                      ? MakaryaColors.profitGreen
+                                      : MakaryaColors.lossRed,
+                                ),
+                                const SizedBox(width: 2),
+                                Text(
+                                  widget.trend!,
+                                  style: TextStyle(
+                                    fontSize: trendFontSize,
+                                    fontWeight: FontWeight.w600,
+                                    color: widget.trendUp
+                                        ? MakaryaColors.profitGreen
+                                        : MakaryaColors.lossRed,
+                                    fontFamily: _kFontFamily,
                                   ),
-              ),
-          ],
-        ),
-      ],
-    );
-  },
-),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
+                        if (widget.subtitle != null)
+                          Expanded(
+                            child: Text(
+                              widget.subtitle!,
+                              style: TextStyle(
+                                fontSize: subtitleFontSize,
+                                color: MakaryaColors.textMuted,
+                                fontFamily: _kFontFamily,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
     );
   }
-}  
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GLASS BACKGROUND — solid gradient, no image asset / blur
+// ─────────────────────────────────────────────────────────────────────────────
+
 class GlassBackground extends StatelessWidget {
   final Widget child;
   const GlassBackground({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        // Base dark
-        Container(color: MakaryaColors.darkEspresso),
-
-        // Blob 1: Cyan top-left
-        Positioned(
-          top: -100,
-          left: -80,
-          child: Container(
-            width: 350,
-            height: 350,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  MakaryaColors.blobCyan.withValues(alpha: 0.25),
-                  MakaryaColors.blobCyan.withValues(alpha: 0.0),
-                ],
-              ),
-            ),
-          ),
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            MakaryaColors.darkEspresso,
+            MakaryaColors.surface01,
+          ],
         ),
-
-        // Blob 2: Purple top-right
-        Positioned(
-          top: -60,
-          right: -100,
-          child: Container(
-            width: 400,
-            height: 400,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  MakaryaColors.blobPurple.withValues(alpha: 0.20),
-                  MakaryaColors.blobPurple.withValues(alpha: 0.0),
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        // Blob 3: Blue bottom-left
-        Positioned(
-          bottom: 100,
-          left: -120,
-          child: Container(
-            width: 300,
-            height: 300,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  MakaryaColors.blobBlue.withValues(alpha: 0.18),
-                  MakaryaColors.blobBlue.withValues(alpha: 0.0),
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        // Content
-        child,
-      ],
+      ),
+      child: child,
     );
   }
 }

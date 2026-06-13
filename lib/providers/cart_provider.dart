@@ -96,6 +96,9 @@ class CartProvider extends ChangeNotifier {
   String? _lastError;
   String? get lastError => _lastError;
 
+  String? _lastTrxCode;
+  String? get lastTrxCode => _lastTrxCode;
+
   final _supabase = Supabase.instance.client;
 
   bool get isEmpty   => _items.isEmpty;
@@ -228,6 +231,7 @@ class CartProvider extends ChangeNotifier {
       // Generate transaction code
       final now     = DateTime.now();
       final trxCode = 'TRX-${now.year}${now.month.toString().padLeft(2,'0')}${now.day.toString().padLeft(2,'0')}-${now.millisecondsSinceEpoch % 10000}';
+      _lastTrxCode = trxCode;
 
       // Staff ID dari session, fallback ke EMP-001
       final resolvedStaffId = staffId ?? await _getFallbackStaffId();
@@ -240,7 +244,7 @@ class CartProvider extends ChangeNotifier {
         'trx_code':        trxCode,
         'staff_id':        resolvedStaffId,
         'tax_profile_id':  4,
-        'trx_at':          now.toIso8601String(),
+        'trx_at':          now.toUtc().toIso8601String(),
         'subtotal':        subtotal,
         'discount_amount': _globalDiscount,
         'discount_pct':    subtotal > 0 ? _globalDiscount / subtotal : 0,

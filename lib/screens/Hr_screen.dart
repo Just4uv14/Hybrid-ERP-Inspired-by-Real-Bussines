@@ -17,9 +17,6 @@ import '../providers/auth_provider.dart';
 import '../theme/makarya_theme.dart';
 import '../supabase_config.dart';
 
-final _kResendApiKey = resendApiKey;
-const _kFromEmail    = 'onboarding@resend.dev'; 
-
 class HRScreen extends StatefulWidget {
   const HRScreen({super.key});
   @override
@@ -757,8 +754,7 @@ class _QRSheetState extends State<_QRSheet> {
     setState(() => _regenerating = false);
   }
 
-  // [FIX] Kirim QR langsung via Resend API
-  // [FIX] Via Supabase Edge Function - avoid CORS
+  // Kirim QR via Supabase Edge Function → Resend API (API key aman di server)
   Future<void> _sendEmail() async {
     final email = widget.staff.email;
     if (email == null || email.isEmpty) {
@@ -774,33 +770,38 @@ class _QRSheetState extends State<_QRSheet> {
       );
       return;
     }
+
     setState(() => _sending = true);
     try {
       final response = await http.post(
-        Uri.parse(supabaseFunction),
+        Uri.parse('$supabaseUrl/functions/v1/send-qr-email'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${Supabase.instance.client.auth.currentSession?.accessToken ?? ""}',
+          'Authorization': 'Bearer $supabaseAnonKey',
+          'apikey': supabaseAnonKey,
         },
         body: jsonEncode({
           'to':        email,
           'staffName': widget.staff.fullName,
-          'token':     token,
+          'staffId':   widget.staff.employeeId,
+          'qrToken':   token,
         }),
       );
-      if (mounted) {
-        if (response.statusCode == 200 || response.statusCode == 201) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Email berhasil dikirim ke $email'),
-            backgroundColor: Colors.green.shade700,
-          ));
-        } else {
-          final b = jsonDecode(response.body);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Gagal: ${b["error"] ?? b["message"] ?? response.statusCode}'),
-            backgroundColor: Colors.red.shade700,
-          ));
-        }
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Email berhasil dikirim ke $email'),
+          backgroundColor: Colors.green.shade700,
+        ));
+      } else {
+        final b = jsonDecode(response.body);
+        final msg = b['error'] ?? b['message'] ?? 'Status ${response.statusCode}';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Gagal: $msg'),
+          backgroundColor: Colors.red.shade700,
+        ));
       }
     } catch (e) {
       if (mounted) {

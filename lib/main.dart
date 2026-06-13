@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -24,6 +22,7 @@ import 'screens/hr_screen.dart';
 import 'screens/receipt_screen.dart';
 import 'theme/makarya_theme.dart';
 import 'widgets/makarya_sidebar.dart';
+import 'widgets/glass_widgets.dart';
 import 'supabase_config.dart';
 
 void main() async {
@@ -185,114 +184,13 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
     final alerts = dash.inventoryAlerts.where((a) => a.health != StockHealth.healthy).toList();
     showModalBottomSheet(
       context: context,
-      backgroundColor: MakaryaColors.surface02,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (sheetCtx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.45,
-        minChildSize: 0.25,
-        maxChildSize: 0.85,
-        builder: (_, scrollCtrl) => Column(children: [
-          Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
-            width: 36, height: 4,
-            decoration: BoxDecoration(
-              color: MakaryaColors.textMuted.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(children: [
-              Container(
-                width: 34, height: 34,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE05A4E).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.notifications_active_rounded, size: 18, color: Color(0xFFE05A4E)),
-              ),
-              const SizedBox(width: 10),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Inventory Alerts',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
-                        color: MakaryaColors.textPrimary, fontFamily: 'Inter')),
-                Text(alerts.isEmpty ? 'Semua stok sehat' : '${alerts.length} item perlu perhatian',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: alerts.isEmpty ? MakaryaColors.profitGreen : const Color(0xFFE05A4E),
-                        fontFamily: 'Inter')),
-              ]),
-            ]),
-          ),
-          const Divider(color: MakaryaColors.surface01, thickness: 1, height: 1),
-          Expanded(
-            child: alerts.isEmpty
-                ? const Center(
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.check_circle_outline_rounded, size: 40, color: MakaryaColors.profitGreen),
-                      SizedBox(height: 8),
-                      Text('Semua stok dalam kondisi sehat',
-                          style: TextStyle(color: MakaryaColors.textSecondary, fontFamily: 'Inter')),
-                    ]),
-                  )
-                : ListView.separated(
-                    controller: scrollCtrl,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    itemCount: alerts.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) {
-                      final a     = alerts[i];
-                      final color = switch (a.health) {
-                        StockHealth.outOfStock  => MakaryaColors.lossRed,
-                        StockHealth.expiredRisk => MakaryaColors.warningAmber,
-                        StockHealth.lowStock    => MakaryaColors.warningAmber,
-                        StockHealth.slowMover   => MakaryaColors.infoBlue,
-                        StockHealth.healthy     => MakaryaColors.profitGreen,
-                      };
-                      final label = switch (a.health) {
-                        StockHealth.outOfStock  => 'Habis',
-                        StockHealth.expiredRisk => 'Risiko Kadaluarsa',
-                        StockHealth.lowStock    => 'Stok Menipis',
-                        StockHealth.slowMover   => 'Slow Mover',
-                        StockHealth.healthy     => 'Sehat',
-                      };
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.07),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border(left: BorderSide(color: color, width: 3)),
-                        ),
-                        child: Row(children: [
-                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(a.item.name,
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
-                                    color: MakaryaColors.textPrimary, fontFamily: 'Inter'),
-                                maxLines: 1, overflow: TextOverflow.ellipsis),
-                            const SizedBox(height: 2),
-                            Text(a.recommendation,
-                                style: TextStyle(fontSize: 11, color: color, fontFamily: 'Inter'),
-                                maxLines: 2, overflow: TextOverflow.ellipsis),
-                          ])),
-                          const SizedBox(width: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(label,
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
-                                    color: color, fontFamily: 'Inter')),
-                          ),
-                        ]),
-                      );
-                    },
-                  ),
-          ),
-        ]),
+      builder: (sheetCtx) => GlassDialog(
+        maxWidth: 520,
+        borderRadius: 20,
+        blurSigma: 16,
+        child: _AlertSheetContent(alerts: alerts),
       ),
     );
   }
@@ -306,10 +204,13 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
         final navItems  = _navItemsForRole(auth.currentRole);
         final safeIndex = _selectedIndex.clamp(0, navItems.length - 1);
 
-        return GlassBackground(
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            body: SafeArea(
+        // ── SOLID BACKGROUND (no nested BackdropFilter) ─────────────
+        return Scaffold(
+          backgroundColor: MakaryaColors.darkEspresso,
+          body: GlassBackgroundImage(
+            imageAsset: 'assets/images/background.jpg',
+            overlayOpacity: 0.08,
+            child: SafeArea(
               bottom: false,
               child: Row(children: [
                 if (isWide) _buildSidebar(auth, navItems, safeIndex),
@@ -322,8 +223,8 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
                 ])),
               ]),
             ),
-            bottomNavigationBar: isWide ? null : _buildBottomNav(navItems, safeIndex),
           ),
+          bottomNavigationBar: isWide ? null : _buildBottomNav(navItems, safeIndex),
         );
       },
     );
@@ -362,12 +263,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   }
 
   Widget _buildRail(AuthProvider auth, List<_NavItem> items, int safeIndex) {
-    return Container(
+    return GlassContainer(
       width: 80,
-      decoration: BoxDecoration(
-        color: MakaryaColors.darkEspresso,
-        border: Border(right: BorderSide(color: MakaryaColors.woodBrown.withValues(alpha: 0.3))),
-      ),
+      borderRadius: 0,
+      blurSigma: 10,
       child: Column(children: [
         const SizedBox(height: 16),
         _logoMark(),
@@ -395,13 +294,10 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   }
 
   Widget _buildTopBar(AuthProvider auth, List<_NavItem> items, int safeIndex) {
-    return Container(
+    return GlassHeader(
       height: 56,
+      blurSigma: 12,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: MakaryaColors.darkEspresso,
-        border: Border(bottom: BorderSide(color: MakaryaColors.woodBrown.withValues(alpha: 0.2))),
-      ),
       child: Row(children: [
         Container(
           width: 32, height: 32,
@@ -522,11 +418,9 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   }
 
   Widget _buildBottomNav(List<_NavItem> items, int safeIndex) {
-    return Container(
-      decoration: BoxDecoration(
-        color: MakaryaColors.darkEspresso,
-        border: Border(top: BorderSide(color: MakaryaColors.woodBrown.withValues(alpha: 0.3))),
-      ),
+    return GlassContainer(
+      borderRadius: 0,
+      blurSigma: 12,
       child: BottomNavigationBar(
         currentIndex: safeIndex,
         onTap: _onNavTap,
@@ -590,36 +484,183 @@ class _MainShellState extends State<MainShell> with TickerProviderStateMixin {
   void _showProfileSheet(AuthProvider auth) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: MakaryaColors.surface01,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => _ProfileSheet(auth: auth),
+      builder: (_) => GlassDialog(
+        maxWidth: 480,
+        borderRadius: 20,
+        blurSigma: 16,
+        child: _ProfileSheet(auth: auth),
+      ),
     );
   }
 
   void _confirmLogout(AuthProvider auth) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: MakaryaColors.surface01,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: const Text('Keluar?', style: TextStyle(color: MakaryaColors.textPrimary, fontFamily: 'Inter', fontSize: 15)),
-        content: const Text('Sesi kamu akan berakhir.',
-            style: TextStyle(color: MakaryaColors.textSecondary, fontFamily: 'Inter', fontSize: 12)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context),
-              child: const Text('Batal', style: TextStyle(color: MakaryaColors.textMuted))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: MakaryaColors.lossRed, foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-            onPressed: () { Navigator.pop(context); auth.logout(); },
-            child: const Text('Keluar', style: TextStyle(fontFamily: 'Inter')),
-          ),
-        ],
+      builder: (_) => GlassDialog(
+        maxWidth: 360,
+        borderRadius: 20,
+        blurSigma: 16,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Keluar?', style: TextStyle(
+                color: MakaryaColors.textPrimary, fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            const Text('Sesi kamu akan berakhir.',
+                style: TextStyle(color: MakaryaColors.textSecondary, fontFamily: 'Inter', fontSize: 13)),
+            const SizedBox(height: 24),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: MakaryaColors.glassBorder),
+                    foregroundColor: MakaryaColors.textMuted,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Batal', style: TextStyle(fontFamily: 'Inter')),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: MakaryaColors.lossRed,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: () { Navigator.pop(context); auth.logout(); },
+                  child: const Text('Keluar', style: TextStyle(fontFamily: 'Inter')),
+                ),
+              ),
+            ]),
+          ],
+        ),
       ),
     );
+  }
+}
+
+// =============================================================================
+// Alert Sheet Content (extracted for glass dialog)
+// =============================================================================
+
+class _AlertSheetContent extends StatelessWidget {
+  final dynamic alerts;
+  const _AlertSheetContent({required this.alerts});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Container(
+        margin: const EdgeInsets.only(top: 12, bottom: 8),
+        width: 36, height: 4,
+        decoration: BoxDecoration(
+          color: MakaryaColors.textMuted.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        child: Row(children: [
+          Container(
+            width: 34, height: 34,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE05A4E).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.notifications_active_rounded, size: 18, color: Color(0xFFE05A4E)),
+          ),
+          const SizedBox(width: 10),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Inventory Alerts',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700,
+                    color: MakaryaColors.textPrimary, fontFamily: 'Inter')),
+            Text(alerts.isEmpty ? 'Semua stok sehat' : '${alerts.length} item perlu perhatian',
+                style: TextStyle(
+                    fontSize: 11,
+                    color: alerts.isEmpty ? MakaryaColors.profitGreen : const Color(0xFFE05A4E),
+                    fontFamily: 'Inter')),
+          ]),
+        ]),
+      ),
+      const Divider(color: MakaryaColors.surface01, thickness: 1, height: 1),
+      Flexible(
+        child: alerts.isEmpty
+            ? const Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.check_circle_outline_rounded, size: 40, color: MakaryaColors.profitGreen),
+                  SizedBox(height: 8),
+                  Text('Semua stok dalam kondisi sehat',
+                      style: TextStyle(color: MakaryaColors.textSecondary, fontFamily: 'Inter')),
+                ]),
+              )
+            : ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                itemCount: alerts.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, i) {
+                  final a     = alerts[i];
+                  final color = switch (a.health) {
+                    StockHealth.outOfStock  => MakaryaColors.lossRed,
+                    StockHealth.expiredRisk => MakaryaColors.warningAmber,
+                    StockHealth.lowStock    => MakaryaColors.warningAmber,
+                    StockHealth.slowMover   => MakaryaColors.infoBlue,
+                    StockHealth.healthy     => MakaryaColors.profitGreen,
+                    _                       => MakaryaColors.profitGreen,
+                  };
+                  final label = switch (a.health) {
+                    StockHealth.outOfStock  => 'Habis',
+                    StockHealth.expiredRisk => 'Risiko Kadaluarsa',
+                    StockHealth.lowStock    => 'Stok Menipis',
+                    StockHealth.slowMover   => 'Slow Mover',
+                    StockHealth.healthy     => 'Sehat',
+                    _                       => 'Sehat',
+                  };
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.07),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border(left: BorderSide(color: color, width: 3)),
+                    ),
+                    child: Row(children: [
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(a.item.name,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                                color: MakaryaColors.textPrimary, fontFamily: 'Inter'),
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
+                        const SizedBox(height: 2),
+                        Text(a.recommendation,
+                            style: TextStyle(fontSize: 11, color: color, fontFamily: 'Inter'),
+                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                      ])),
+                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(label,
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                                color: color, fontFamily: 'Inter')),
+                      ),
+                    ]),
+                  );
+                },
+              ),
+      ),
+    ]);
   }
 }
 

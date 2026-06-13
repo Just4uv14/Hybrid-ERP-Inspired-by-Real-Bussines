@@ -59,3 +59,5 @@ captures/
 lib/supabase_config.dart
 *.zip
 *.backup
+
+USER_MANUAL.md

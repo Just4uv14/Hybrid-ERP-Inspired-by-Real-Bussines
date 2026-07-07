@@ -4,6 +4,50 @@
 
 ---
 
+## ⚙️ GETTING STARTED (SETUP)
+
+> **Catatan:** File konfigurasi Supabase (`lib/supabase_config.dart`) **tidak disertakan** di repository ini demi keamanan credential. Ikuti langkah-langkah berikut untuk menjalankan aplikasi.
+
+### Prerequisites
+- Flutter SDK ≥ 3.19.0
+- Chrome / Edge browser (untuk web) atau Android Emulator
+- Akun Supabase (gratis) — [supabase.com](https://supabase.com)
+
+### Langkah 1: Clone Repository
+```bash
+git clone https://github.com/<username>/makarya_erp.git
+cd makarya_erp
+```
+
+### Langkah 2: Buat File Konfigurasi Supabase
+```bash
+# Copy template konfigurasi
+cp lib/supabase_config.dart.example lib/supabase_config.dart
+```
+> **Windows (CMD):** `copy lib\supabase_config.dart.example lib\supabase_config.dart`
+
+### Langkah 3: Isi Credential Supabase
+Buka file `lib/supabase_config.dart` lalu isi dengan credential dari **Supabase Dashboard → Project Settings → API**:
+
+```dart
+const String supabaseUrl      = 'https://YOUR_PROJECT_ID.supabase.co';  // ← Project URL
+const String supabaseAnonKey  = 'sb_publishable_XXXXXXX';               // ← Publishable Key (anon)
+const String resendApiKey     = 'YOUR_RESEND_KEY';                      // ← Opsional (untuk fitur kirim email QR)
+const String supabaseFunction = 'https://YOUR_PROJECT_ID.supabase.co/functions/v1/swift-service';
+```
+
+> 💡 **Credential akan disediakan terpisah oleh developer** (via email/chat) jika Anda ingin menggunakan database yang sudah berisi data.
+
+### Langkah 4: Install Dependencies & Run
+```bash
+flutter pub get
+flutter run -d chrome
+```
+
+### Login
+Gunakan **ID Karyawan** dan **PIN** yang terdaftar di tabel `staff` pada database Supabase.
+
+---
 ## PROJECT STRUCTURE
 
 ```

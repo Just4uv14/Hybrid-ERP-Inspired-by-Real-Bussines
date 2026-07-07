@@ -15,19 +15,19 @@ ALTER TABLE staff
 
 -- =============================================================================
 -- STEP 2: Set PIN untuk staff (di-hash pakai pgcrypto bcrypt)
--- PIN default: Manager=1234, Kasir=2222, Barista=3333
+-- PIN default: Manager=[REDACTED], Kasir=[REDACTED], Barista=[REDACTED]
 -- WAJIB ganti di production!
 -- =============================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-UPDATE staff SET pin_hash = crypt('1234', gen_salt('bf')) WHERE employee_id = 'EMP-001';
-UPDATE staff SET pin_hash = crypt('2222', gen_salt('bf')) WHERE employee_id = 'EMP-002';
-UPDATE staff SET pin_hash = crypt('3333', gen_salt('bf')) WHERE employee_id = 'EMP-003';
-UPDATE staff SET pin_hash = crypt('2222', gen_salt('bf')) WHERE employee_id = 'EMP-004';
-UPDATE staff SET pin_hash = crypt('3333', gen_salt('bf')) WHERE employee_id = 'EMP-005';
-UPDATE staff SET pin_hash = crypt('4444', gen_salt('bf')) WHERE employee_id = 'EMP-006';
-UPDATE staff SET pin_hash = crypt('5555', gen_salt('bf')) WHERE employee_id = 'EMP-007';
+UPDATE staff SET pin_hash = crypt('[REDACTED]', gen_salt('bf')) WHERE employee_id = 'EMP-001';
+UPDATE staff SET pin_hash = crypt('[REDACTED]', gen_salt('bf')) WHERE employee_id = 'EMP-002';
+UPDATE staff SET pin_hash = crypt('[REDACTED]', gen_salt('bf')) WHERE employee_id = 'EMP-003';
+UPDATE staff SET pin_hash = crypt('[REDACTED]', gen_salt('bf')) WHERE employee_id = 'EMP-004';
+UPDATE staff SET pin_hash = crypt('[REDACTED]', gen_salt('bf')) WHERE employee_id = 'EMP-005';
+UPDATE staff SET pin_hash = crypt('[REDACTED]', gen_salt('bf')) WHERE employee_id = 'EMP-006';
+UPDATE staff SET pin_hash = crypt('[REDACTED]', gen_salt('bf')) WHERE employee_id = 'EMP-007';
 
 -- =============================================================================
 -- STEP 3: Fungsi verify_staff_pin — dipanggil dari Flutter via .rpc()

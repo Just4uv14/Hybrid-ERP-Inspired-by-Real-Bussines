@@ -772,9 +772,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
     final serviceAmt  = taxable * r.taxConfig.serviceRate;
     final grandTotal  = taxable + ppnAmt + serviceAmt;
 
-    const mono = TextStyle(fontFamily: 'monospace', fontSize: 11, color: MakaryaColors.textPrimary);
-    const monoSm = TextStyle(fontFamily: 'monospace', fontSize: 10, color: MakaryaColors.textSecondary);
-    const monoMuted = TextStyle(fontFamily: 'monospace', fontSize: 10, color: MakaryaColors.textMuted);
+    const mono = TextStyle(fontFamily: 'monospace', fontSize: 11, color: Color(0xFF2C1A00));
+    const monoSm = TextStyle(fontFamily: 'monospace', fontSize: 10, color: Color(0xFF5A4A35));
+    const monoMuted = TextStyle(fontFamily: 'monospace', fontSize: 10, color: Color(0xFF8E8170));
 
     Widget row(String left, String right, {bool bold = false, Color? color}) =>
       Padding(
@@ -786,9 +786,9 @@ class _PaymentDialogState extends State<_PaymentDialog> {
             Text(right, style: bold
                 ? TextStyle(fontFamily: 'monospace', fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: color ?? MakaryaColors.woodLight)
+                    color: color ?? const Color(0xFF2C1A00))
                 : TextStyle(fontFamily: 'monospace', fontSize: 10,
-                    color: color ?? MakaryaColors.textPrimary)),
+                    color: color ?? const Color(0xFF2C1A00))),
           ],
         ),
       );

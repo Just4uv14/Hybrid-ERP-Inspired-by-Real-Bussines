@@ -1,0 +1,20 @@
+// ============================================================
+//  MAKARYA ERP — Supabase Configuration Template
+// ============================================================
+//  SETUP INSTRUCTIONS:
+//  1. Copy file ini dan rename jadi: supabase_config.dart
+//     (di folder yang sama: lib/supabase_config.dart)
+//  2. Isi nilai-nilainya dengan credential Supabase project kamu
+//  3. File supabase_config.dart sudah di-.gitignore
+//     (tidak akan ter-upload ke GitHub)
+// ============================================================
+
+// Dapatkan dari: Supabase Dashboard → Project Settings → API
+const String supabaseUrl     = 'https://YOUR_PROJECT_ID.supabase.co';
+const String supabaseAnonKey = 'YOUR_ANON_KEY_HERE';
+
+// Dapatkan dari: https://resend.com/api-keys
+const String resendApiKey    = 'YOUR_RESEND_API_KEY_HERE';
+
+// Edge Function URL (ikuti format di bawah, ganti YOUR_PROJECT_ID)
+const String supabaseFunction = 'https://YOUR_PROJECT_ID.supabase.co/functions/v1/swift-service';

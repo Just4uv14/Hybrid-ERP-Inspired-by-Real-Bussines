@@ -1,4 +1,4 @@
-# PANDUAN PENGUJIAN APLIKASI (DOSEN / EVALUATOR)
+# PANDUAN PENGUJIAN APLIKASI (DOSEN/USER/EVALUASI)
 ## MAKARYA ERP - Sistem Manajemen Terpadu Toko Buku & Coffee Shop
 
 Panduan singkat ini dibuat khusus untuk mempermudah Bapak/Ibu Dosen dalam menguji fungsionalitas utama aplikasi Makarya ERP, mulai dari login hingga simulasi transaksi lengkap.
@@ -15,7 +15,7 @@ Untuk menguji aplikasi, gunakan salah satu kredensial berikut:
 **Akses Manajer (Dashboard & HR):**
 *(Jika Bapak/Ibu ingin menguji laporan keuangan dan pengelolaan karyawan)*
 - **ID Karyawan:** `EMP-001`
-- **PIN:** *(Silakan minta PIN Manajer ke mahasiswa bersangkutan)*
+- **PIN:** *(Silakan minta PIN Manajer ke zackibahri@gmail.com)*
 
 > **Catatan:** Setelah login, sistem akan otomatis mengenali role (jabatan) Anda dan menampilkan menu yang sesuai.
 

@@ -4,7 +4,7 @@
 
 ---
 
-## ⚙️ GETTING STARTED (SETUP)
+##  GETTING STARTED (SETUP)
 
 > **Catatan:** File konfigurasi Supabase (`lib/supabase_config.dart`) **tidak disertakan** di repository ini demi keamanan credential. Ikuti langkah-langkah berikut untuk menjalankan aplikasi.
 
@@ -36,7 +36,7 @@ const String resendApiKey     = 'YOUR_RESEND_KEY';                      // ← O
 const String supabaseFunction = 'https://YOUR_PROJECT_ID.supabase.co/functions/v1/swift-service';
 ```
 
-> 💡 **Credential akan disediakan terpisah oleh developer** (via email/chat) jika Anda ingin menggunakan database yang sudah berisi data.
+> **Credential akan disediakan terpisah oleh developer** (via email/chat) jika Anda ingin menggunakan database yang sudah berisi data.
 
 ### Langkah 4: Install Dependencies & Run
 ```bash
